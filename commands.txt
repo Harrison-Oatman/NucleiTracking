@@ -1,0 +1,6 @@
+d:
+conda activate linajea
+cd tracking/nucleitracking
+
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\Drift_HisGFP_150ms_10%_15s_timelapse-MaxIP.tif" ^
+-o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model histones003 --diam 50 -f 0.4 -c 0.0
