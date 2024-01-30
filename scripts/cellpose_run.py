@@ -23,10 +23,11 @@ def main():
 
     argparser.add_argument_group("cellpose keywords")
     argparser.add_argument("--use_gpu", dest="use_gpu", default=True)
-    argparser.add_argument("--do_3d", dest="do_3d", default=True)
+    argparser.add_argument("--do_3d", dest="do_3d", default=False)
     argparser.add_argument("--model", dest="model", default="nuclei")
     argparser.add_argument("--diam", dest="diam", default=9., type=float)
     argparser.add_argument("-c", "--cellprob_thresh", dest="cellprob_thresh", default=0.0, type=float)
+    argparser.add_argument("-f", "--flow_thresh", dest="flow_thresh", default=0.4, type=float)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", dest="level", default="INFO")
@@ -85,6 +86,7 @@ def cellpose_process_file(infile, outpath, args):
                          channel_axis=-1,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
+                         flow_threshold=args.flow_thresh,
                          do_3D=args.do_3d,)
 
     out = np.array(results[0])
