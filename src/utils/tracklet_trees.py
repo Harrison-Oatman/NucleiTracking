@@ -1,6 +1,5 @@
 from ete3 import Tree
 import matplotlib.pyplot as plt
-from math import floor
 
 
 def get_tracklet_tree(tracklets):
@@ -53,7 +52,7 @@ def visualize_tracklet_tree(tracklet_tree: Tree, ax=None, c="black"):
         # label branch length
         x = node.end - node.dist / 2
         y = node.y
-        ax.text(x, y + 0.1, f"{floor(node.dist // 1)}:{floor((node.dist % 1)*60):02d}", ha="center", va="bottom")
+        ax.text(x, y + 0.1, f"{round(node.dist // 1)}:{round((node.dist % 1)*60):02d}", ha="center", va="bottom")
 
         if node.children:
             x = [node.end for child in node.children]
