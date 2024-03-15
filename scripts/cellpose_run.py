@@ -44,6 +44,7 @@ def main():
         infile = args.input
         infile = Path(infile)
         assert infile.exists(), f"file not found: {infile}"
+        outpath = Path(outpath) if outpath is not None else infile.parent
         cellpose_process_file(infile, outpath, args)
 
     elif args.input_dir is not None:
@@ -61,7 +62,7 @@ def main():
 def cellpose_process_file(infile, outpath, args):
 
     outfile = Path(outpath) / f"{infile.stem}_masks.npy"
-    outtif = Path(outpath) / f"{infile.stem}_masks.tif"
+    outtif = Path(outpath) / f"{infile.stem}_{args.model}masks.tif"
     binout = Path(outpath) / f"{infile.stem}_binary_masks.tif"
 
     raw = tifffile.imread(infile)
@@ -87,7 +88,8 @@ def cellpose_process_file(infile, outpath, args):
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
-                         do_3D=args.do_3d,)
+                         do_3D=args.do_3d,
+                         normalize={"percentile": [1, 99.99]})
 
     out = np.array(results[0])
 
