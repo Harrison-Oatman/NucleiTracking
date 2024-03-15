@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 from tqdm import tqdm
 from pathlib import Path
-from sklearn.cluster import KMeans
+from sklearn.cluster import KMeans, DBSCAN
+from sklearn.linear_model import SGDOneClassSVM
+from scipy.spatial import ConvexHull
 
 from .peak_identification import get_persistent_homology
 
@@ -74,15 +76,23 @@ def ap_axis_position(spots, tracklets, anterior, posterior):
     tracklets["source_ap_position"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["ap_position"].first())
     tracklets["sink_ap_position"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["ap_position"].last())
 
+    tracklets["mean_edge_distance"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["distance_to_edge"].mean())
+    tracklets["source_edge_distance"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["distance_to_edge"].first())
+    tracklets["sink_edge_distance"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["distance_to_edge"].last())
+
     return spots, tracklets
 
 
-def detect_nuclear_cycle(tracklets, n_clusters=3):
-    # convert start times to time series
-    t_s = np.arange(tracklets["start"].min(), tracklets["end"].max())
-    time_series = np.histogram(tracklets["start"], bins=t_s)[0]
+def peak_identification(start_times):
+    t_s = np.arange(start_times.min(), start_times.max())
+    time_series = np.histogram(start_times, bins=t_s)[0]
 
-    peaks = [peak.born for peak in get_persistent_homology(time_series)][:n_clusters]
+    return [peak.born for peak in get_persistent_homology(time_series)]
+
+
+def detect_nuclear_cycle(tracklets, n_clusters=3):
+    # determine time series peaks
+    peaks = peak_identification(tracklets["start"])[:n_clusters]
 
     kmeans = KMeans(n_clusters=n_clusters, init=np.array(peaks).reshape(-1, 1), verbose=0)
     tracklets["cycle"] = kmeans.fit_predict(tracklets[["start"]])
@@ -97,9 +107,71 @@ def detect_nuclear_cycle(tracklets, n_clusters=3):
     tracklets["cycle_start_deviation"] = tracklets["start_time"] - tracklets["cycle_median_start_time"]
     tracklets["cycle_end_deviation"] = tracklets["end_time"] - tracklets["cycle_median_end_time"]
 
+    tracklets = detect_nc_outliers(tracklets)
+
     return peaks, tracklets
 
 
+def sister_tracklets(tracklets):
+    """
+    Computes features related to sister / daughter tracklets, such as division orientation
+    """
+
+    tracklets["source_div_angle"] = [None for _ in range(len(tracklets))]
+    tracklets["sink_div_angle"] = [None for _ in range(len(tracklets))]
+
+    for tracklet in tracklets.index:
+        daughters = tracklets[tracklets["parent"] == tracklet].index
+        if len(daughters) == 2:
+            division_orientation = np.arctan2(
+                tracklets.loc[daughters[0], "source_y"] - tracklets.loc[daughters[1], "source_y"],
+                tracklets.loc[daughters[0], "source_x"] - tracklets.loc[daughters[1], "source_x"]
+            ) % np.pi
+            tracklets.loc[tracklet, "sink_div_angle"] = division_orientation
+            tracklets.loc[daughters[0], "source_div_angle"] = division_orientation
+            tracklets.loc[daughters[1], "source_div_angle"] = division_orientation
+
+    so, si = tracklets.source_div_angle, tracklets.sink_div_angle
+    tracklets["division_angle_difference"] = np.min([np.abs(so - si), np.abs(np.abs(so - si)-np.pi)], axis=0)
+
+    return tracklets
+
+
+def detect_positional_outliers(spots):
+    """
+    Detects outliers according to x and y positions
+    Uses DBSCAN and keeps only the largest cluster
+    """
+    x = spots[["POSITION_X", "POSITION_Y"]].values
+    dbscan = DBSCAN(eps=10, min_samples=1)
+    return dbscan.fit_predict(x)
+
+def compute_edge_distance(spots):
+    points = spots[["POSITION_X", "POSITION_Y"]].values
+    hull = ConvexHull(points)
+    return distance_to_hull(hull, points)
+
+
+def distances_to_line(points, p1, p2):
+    """
+    points: (n, 2) array of points
+    p1, p2: (2,) array of points defining the line
+    """
+    x1, y1 = p1
+    x2, y2 = p2
+    x0, y0 = points[:, 0], points[:, 1]
+
+    return np.abs((x2 - x1) * (y1 - y0) - (x1 - x0) * (y2 - y1)) / np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+
+def distance_to_hull(hull: ConvexHull, points):
+    n = len(hull.vertices)
+    ds = []
+    for i in range(n):
+        p1, p2 = hull.vertices[(i - 1) % n], hull.vertices[i]
+        ds.append(distances_to_line(points, hull.points[p1], hull.points[p2]))
+
+    return np.min(ds, axis=0)
 
 
 def tracklet_from_path(tracking_path, root, t_delta=0.25, anterior=None, posterior=None):
@@ -108,6 +180,8 @@ def tracklet_from_path(tracking_path, root, t_delta=0.25, anterior=None, posteri
     spots = pd.read_csv(tracking_path / f"{root}_spots.csv", skiprows=[1, 2, 3])
     edges = pd.read_csv(tracking_path / f"{root}_edges.csv", skiprows=[1, 2, 3])
     tracks = pd.read_csv(tracking_path / f"{root}_tracks.csv", skiprows=[1, 2, 3])
+
+    spots["distance_to_edge"] = compute_edge_distance(spots)
 
     spots, tracklets = compute_tracklets(spots, edges, t_delta=t_delta)
 
@@ -119,3 +193,26 @@ def tracklet_from_path(tracking_path, root, t_delta=0.25, anterior=None, posteri
         spots, tracklets = ap_axis_position(spots, tracklets, anterior, posterior)
 
     return spots, edges, tracks, tracklets
+
+
+def detect_nc_outliers(tracklets):
+    """
+    Detects outliers in nuclear cycle tracklets, by nuclear cycle
+    """
+    outliers = []
+
+    for cycle in tracklets["cycle"].unique():
+        cycle_tracklets = tracklets[tracklets["cycle"] == cycle]
+
+        # outliers have start or end deviation greater than 1.5 times the median absolute deviation
+        start_deviation = cycle_tracklets["cycle_start_deviation"]
+        end_deviation = cycle_tracklets["cycle_end_deviation"]
+
+        start_outliers = np.abs(start_deviation) > 5 * np.median(np.abs(start_deviation))
+        end_outliers = np.abs(end_deviation) > 5 * np.median(np.abs(end_deviation))
+
+        outliers.extend(cycle_tracklets[start_outliers | end_outliers].index)
+
+    tracklets["nc_outlier"] = tracklets.index.isin(outliers)
+
+    return tracklets
