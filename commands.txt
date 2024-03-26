@@ -3,3 +3,5 @@ conda activate linajea
 cd tracking/nucleitracking
 
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo008\embryo008_MaxIP_bgs.tif" -o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model crop007 --diam 15 -f 1.0 -c 0.0
+python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo016\embryo016_linear.xml"
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo018\embryo018_MaxIP_bgs.tif"  --model crop007 --diam 15 -f 1.0 -c 0.0
