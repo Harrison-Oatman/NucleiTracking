@@ -8,10 +8,10 @@ from skimage.measure import regionprops, regionprops_table
 import pandas as pd
 
 MASK_PATH = Path(r"D:\Tracking\NucleiTracking\data\interim\cellpose_out\embryo014a_MaxIP_bgs_crop007masks.tif")
-RAW_PATH = Path(r"D:\Tracking\NucleiTracking\data\interim\confocal\embryo014a\embryo014a_MaxIP_bgs.tif")
+RAW_PATH = Path(r"/data/interim/confocal/embryo014a/embryo014a_MaxIP_bgs.tif")
 
 # EXPORT_PATH = Path(r"D:\Tracking\NucleiTracking\data\processed") / time.strftime("%Y%m%d%H%M%S")
-EXPORT_PATH = Path(r"D:\Tracking\NucleiTracking\data\processed\embryo014a")
+EXPORT_PATH = Path(r"/data/processed/embryo014a")
 
 SLICES = [5, 10, 11, 12, 13, 21, 22, 41, 51, 54, 64, 67, 78, 100, 107, 114, 119, 168, 187, 189, 198, 210]
 SPOTS_PER_SLICE = 25

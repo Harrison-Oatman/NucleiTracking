@@ -5,6 +5,7 @@ from pathlib import Path
 from sklearn.cluster import KMeans, DBSCAN
 from sklearn.linear_model import SGDOneClassSVM
 from scipy.spatial import ConvexHull
+from typing import Union
 
 from .peak_identification import get_persistent_homology
 
@@ -83,7 +84,7 @@ def ap_axis_position(spots, tracklets, anterior, posterior):
     return spots, tracklets
 
 
-def peak_identification(start_times):
+def identify_peaks(start_times):
     t_s = np.arange(start_times.min(), start_times.max())
     time_series = np.histogram(start_times, bins=t_s)[0]
 
@@ -92,7 +93,7 @@ def peak_identification(start_times):
 
 def detect_nuclear_cycle(tracklets, n_clusters=3):
     # determine time series peaks
-    peaks = peak_identification(tracklets["start"])[:n_clusters]
+    peaks = identify_peaks(tracklets["start"])[:n_clusters]
 
     kmeans = KMeans(n_clusters=n_clusters, init=np.array(peaks).reshape(-1, 1), verbose=0)
     tracklets["cycle"] = kmeans.fit_predict(tracklets[["start"]])
@@ -143,11 +144,22 @@ def detect_positional_outliers(spots):
     Uses DBSCAN and keeps only the largest cluster
     """
     x = spots[["POSITION_X", "POSITION_Y"]].values
-    dbscan = DBSCAN(eps=10, min_samples=1)
+    dbscan = DBSCAN(eps=40, min_samples=1)
     return dbscan.fit_predict(x)
 
-def compute_edge_distance(spots):
-    points = spots[["POSITION_X", "POSITION_Y"]].values
+
+def compute_edge_distance(points: Union[pd.DataFrame, np.array], x_label="POSITION_X", y_label="POSITION_Y"):
+    """
+    Computes the distance of each point to the convex hull of the points
+    :param points: [n, 2] array of points or pd.DataFrame of points
+    :param x_label: column names if points is a pd.DataFrame
+    :param y_label: column names if points is a pd.DataFrame
+    :return: [n,] array of distances from convex hull
+    """
+
+    if isinstance(points, pd.DataFrame):
+        points = points[[x_label, y_label]].values
+
     hull = ConvexHull(points)
     return distance_to_hull(hull, points)
 
