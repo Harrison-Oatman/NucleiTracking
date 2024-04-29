@@ -28,6 +28,7 @@ def main():
     argparser.add_argument("--diam", dest="diam", default=9., type=float)
     argparser.add_argument("-c", "--cellprob_thresh", dest="cellprob_thresh", default=0.0, type=float)
     argparser.add_argument("-f", "--flow_thresh", dest="flow_thresh", default=0.4, type=float)
+    argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", dest="level", default="INFO")
@@ -83,13 +84,13 @@ def cellpose_process_file(infile, outpath, args):
     logging.info(f"shape of cellpose input: {raw.shape}")
 
     results = model.eval([v for v in raw],
-                         channels=[0, 0],
+                         channels=[2, 1],
                          channel_axis=-1,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
                          do_3D=args.do_3d,
-                         normalize={"percentile": [1, 99.99]})
+                         normalize={"percentile": [1, args.top_percentile]})
 
     out = np.array(results[0])
 
