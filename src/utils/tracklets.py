@@ -6,6 +6,7 @@ from sklearn.cluster import KMeans, DBSCAN
 from sklearn.linear_model import SGDOneClassSVM
 from scipy.spatial import ConvexHull
 from typing import Union
+from json import load
 
 from .peak_identification import get_persistent_homology
 
@@ -228,3 +229,67 @@ def detect_nc_outliers(tracklets):
     tracklets["nc_outlier"] = tracklets.index.isin(outliers)
 
     return tracklets
+
+
+def import_tracklets(datapath, roots):
+    spots = {}
+    tracklets = {}
+    metadatas = {}
+
+    for root in roots:
+        spots_df = pd.read_csv(datapath / root / f"{root}_spots.csv")
+
+        with open(datapath / root / f"{root}_metadata.json") as f:
+            metadata = load(f)
+        division_times = np.array(metadata["division_times"])
+        group = spots_df.sort_values(by="FRAME").groupby("tracklet_id")
+        cols = {
+            "start_time": group["time"].min(),
+            "end_time": group["time"].max(),
+            "start_frame": group["FRAME"].min(),
+            "end_frame": group["FRAME"].max(),
+            "length": group["time"].max() - group["time"].min(),
+            "source_spot": group["ID"].first(),
+            "sink_spot": group["ID"].last(),
+            "mean_ap_position": group["ap_position"].mean(),
+            "source_ap_position": group["ap_position"].first(),
+            "sink_ap_position": group["ap_position"].last(),
+            "initial_x": group["POSITION_X"].first(),
+            "initial_y": group["POSITION_Y"].first(),
+            "final_x": group["POSITION_X"].last(),
+            "final_y": group["POSITION_Y"].last(),
+            "track_id": group["track_id"].first(),
+            "mean_edge_distance": group["um_from_edge"].mean(),
+        }
+        tracklets_df = pd.DataFrame(cols)
+        tracklets_df["track_n_tracklets"] = tracklets_df["track_id"].map(
+            tracklets_df["track_id"].value_counts()
+        )
+        spots_df["track_n_tracklets"] = spots_df["tracklet_id"].map(tracklets_df["track_n_tracklets"])
+        # map each tracklet start time to the nearest division time
+        tracklets_df["cycle"] = tracklets_df["start_frame"].apply(
+            lambda x: np.argmin(np.abs(division_times - x)) + 10
+        )
+        spots_df["cycle"] = spots_df["tracklet_id"].map(tracklets_df["cycle"])
+        tracklets_df["embryo"] = root
+        tracklets_df["tracklet_id"] = tracklets_df.index
+
+        sink_to_tracklet = {idx: tracklet for tracklet, idx in tracklets_df["sink_spot"].items()}
+        sink_to_tracklet[0] = -1
+        id_to_parent = {idx: parent for idx, parent in zip(spots_df["ID"], spots_df["parent_id"])}
+
+        tracklets_df["parent_tracklet"] = tracklets_df["source_spot"].map(id_to_parent).map(sink_to_tracklet)
+        tracklets_df["parent_tracklet"] = tracklets_df["parent_tracklet"].fillna(0).astype(int)
+        tracklets_df["n_children"] = tracklets_df["tracklet_id"].map(
+            tracklets_df["parent_tracklet"].value_counts()
+        ).fillna(0).astype(int)
+        tracklets_df["e_id"] = [f"{root}_{idx}" for idx in tracklets_df.index]
+        tracklets_df["e_parent_id"] = [f"{root}_{idx}" for idx in tracklets_df["parent_tracklet"]]
+
+        tracklets[root] = tracklets_df
+        spots[root] = spots_df
+        metadatas[root] = metadata
+
+    tracklets_joined = pd.concat(tracklets.values(), ignore_index=True)
+    tracklets_joined.set_index("e_id", inplace=True)
+    return spots, tracklets, metadatas, tracklets_joined
