@@ -6,15 +6,19 @@ import tifffile
 import numpy as np
 from skimage.measure import regionprops, regionprops_table
 import pandas as pd
+import json
 
-MASK_PATH = Path(r"D:\Tracking\NucleiTracking\data\interim\cellpose_out\embryo014a_MaxIP_bgs_crop007masks.tif")
-RAW_PATH = Path(r"/data/interim/confocal/embryo014a/embryo014a_MaxIP_bgs.tif")
+root = "embryo018"
+
+MASK_PATH = Path().cwd() / f"data/interim/confocal/{root}/{root}_MaxIP_bgs_crop007masks.tif"
+RAW_PATH = Path().cwd() / f"data/interim/confocal/{root}/{root}_MaxIP_bgs.tif"
 
 # EXPORT_PATH = Path(r"D:\Tracking\NucleiTracking\data\processed") / time.strftime("%Y%m%d%H%M%S")
-EXPORT_PATH = Path(r"/data/processed/embryo014a")
+EXPORT_PATH = Path().cwd() / f"data/processed/{root}"
 
-SLICES = [5, 10, 11, 12, 13, 21, 22, 41, 51, 54, 64, 67, 78, 100, 107, 114, 119, 168, 187, 189, 198, 210]
-SPOTS_PER_SLICE = 25
+SLICES = {"embryo014a": [5, 10, 11, 12, 13, 21, 22, 41, 51, 54, 64, 67, 78, 100, 107, 114, 119, 168, 187, 189, 198, 210],
+          "embryo018": [22, 25, 30, 42, 48, 62, 64, 71, 84, 88, 94, 104, 106, 109, 111, 120, 125, 129, 140, 156, 164, 175, 180, 183, 191, 201, 205, 212, 220, 232, 240, 250, 260, 279, 292, 322, 339, 356]}
+SPOTS_PER_SLICE = 40
 
 CROP_SIZE = 48
 BIG_BOX_SIZE = 256
@@ -60,7 +64,7 @@ def label_display_loop(spot):
                   (img.shape[1] // 2 + CROP_SIZE // 2, img.shape[0] // 2 + CROP_SIZE // 2),
                   color=(0, 0, 255),thickness=1)
 
-    cv2.imshow(f"spot: {LABELS[spot['label']]}", img)
+    cv2.imshow(f"frame: {spot['slice']} spot: {LABELS[spot['label']]} {spot[0]}", img)
 
     key = cv2.waitKey(0)
 
@@ -94,10 +98,10 @@ def import_csv(masks, raw, path):
     return data
 
 
-def new_csv(masks, raw):
+def new_csv(masks, raw, slices):
     data = []
 
-    for z in SLICES:
+    for z in slices:
         mask = masks[z]
         img = raw[z]
 
@@ -138,6 +142,7 @@ def save(data):
 
     save_csv.to_csv(EXPORT_PATH / "labels.csv", index=True)
 
+
 def main():
     masks = tifffile.imread(MASK_PATH)
     raw = tifffile.imread(RAW_PATH)
@@ -149,8 +154,16 @@ def main():
         data = import_csv(masks, raw, EXPORT_PATH / "labels.csv")
         print("loaded existing labels.csv")
 
+        new_slices = [z for z in SLICES[root] if z not in data["slice"].unique()]
+        print(new_slices)
+
+        if new_slices:
+            new_data = new_csv(masks, raw, new_slices)
+            data = pd.concat([data, new_data], ignore_index=True)
+            print(f"added {len(new_data)} new spots")
+
     else:
-        data = new_csv(masks, raw)
+        data = new_csv(masks, raw, SLICES[root])
         print("created new labels.csv")
 
     n = len(data["label"])
