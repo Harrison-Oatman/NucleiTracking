@@ -84,7 +84,7 @@ def prep_spots_df(spots_df: pd.DataFrame, metadata: dict) -> pd.DataFrame:
                     "ELLIPSE_ASPECTRATIO",
                     "CIRCULARITY", "AREA", "SHAPE_INDEX", "MEDIAN_INTENSITY_CH1"]
 
-    spots_df = spots_df[kept_columns]
+    spots_df = spots_df[kept_columns].copy()
 
     spots_df["time"] = spots_df["FRAME"] / metadata["frames_per_minute"]
     spots_df["um_from_edge"] = spots_df["distance_from_edge"] / metadata["pixels_per_um"]
@@ -98,6 +98,7 @@ def prep_spots_df(spots_df: pd.DataFrame, metadata: dict) -> pd.DataFrame:
     x_ref, y_ref = x_b - x_a, y_b - y_a
 
     spots_df["ap_position"] = (x * x_ref + y * y_ref) / (x_ref ** 2 + y_ref ** 2)
+    spots_df["edge_position"] = (x * y_ref - y * x_ref) / np.sqrt(x_ref ** 2 + y_ref ** 2)
 
     return spots_df
 
@@ -129,7 +130,8 @@ def main():
     spots_df, graph = process_trackmate_tree(tree)
 
     # apply division model
-    graph = map_divisions(spots_df, graph, metadata["n_divisions"], savepath=plotpath)
+    graph, division_times = map_divisions(spots_df, graph, metadata["n_divisions"], savepath=plotpath)
+    metadata["division_times"] = division_times
 
     # reindex tracks, split graph at divisions to assign tracklets
     spots_df = process_graph(spots_df, graph)
@@ -142,6 +144,10 @@ def main():
     # trim columns, process metadata, and save
     spots_df = prep_spots_df(spots_df, metadata)
     spots_df.to_csv(outpath / f"{stem}_spots.csv")
+
+    with open(outpath / f"{stem}_metadata.json", "w") as f:
+        dump(metadata, f)
+
 
 if __name__ == '__main__':
     main()
