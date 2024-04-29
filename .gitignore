@@ -2,3 +2,5 @@ data/
 *.pyc
 .idea/
 results/*
+notebooks/models/*
+notebooks/runs/*
