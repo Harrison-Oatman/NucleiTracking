@@ -13,7 +13,7 @@ def separate_mitoses(tracklets, n_divisions):
 
     print(f"detected division times: {peaks}")
 
-    return interphase_dividers
+    return interphase_dividers, peaks
 
 
 def quick_tracklets(spots_df):
@@ -43,7 +43,7 @@ def get_sister_distances(spots_df, tracklets, div_start, div_end) -> (np.array, 
     division_tracklets = tracklets[(tracklets["start_time"] < div_end) & (tracklets["end_time"] > div_end)]
 
     # subset the full length tracklets and the shorter length tracklets
-    division_fl = division_tracklets[division_tracklets["start_time"] <= div_start + 0.9]
+    division_fl = division_tracklets[division_tracklets["start_time"] < div_start]
     division_fl = division_fl[division_fl.index != 0]
     division_sl = division_tracklets[division_tracklets["start_time"] > div_start + 0.9]
     division_sl = division_sl[division_sl.index != 0]
@@ -114,14 +114,14 @@ def plot_sisters(spots_df, sorted_distances, d_max, indices, ax):
     sns.scatterplot(x=spots_spots["POSITION_X"], y=spots_spots["POSITION_Y"], hue=n_neighbors, ax=ax, s=6)
 
 
-def map_divisions(spots_df, graph, n_divisions, savepath=None) -> nx.DiGraph:
+def map_divisions(spots_df, graph, n_divisions, savepath=None) -> (nx.DiGraph, list[int]):
 
     if savepath:
         fig1, axes1 = plt.subplots(2, 2, figsize=(10, 10))
         fig2, axes2 = plt.subplots(2, 2, figsize=(10, 10))
 
     tracklets = quick_tracklets(spots_df)
-    interphase_dividers = separate_mitoses(tracklets, n_divisions)
+    interphase_dividers, peaks = separate_mitoses(tracklets, n_divisions)
 
     for division in range(n_divisions):
         div_start, div_end = interphase_dividers[division], interphase_dividers[division + 1]
@@ -151,4 +151,4 @@ def map_divisions(spots_df, graph, n_divisions, savepath=None) -> nx.DiGraph:
         fig1.savefig(savepath / "stairplot.png")
         fig2.savefig(savepath / "sisters.png")
 
-    return graph
+    return graph, peaks
