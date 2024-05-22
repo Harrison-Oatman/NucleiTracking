@@ -4,6 +4,8 @@ import tifffile
 import numpy as np
 from cellpose import models
 from tqdm import tqdm
+import torch
+import time
 
 from pathlib import Path
 
@@ -18,7 +20,7 @@ from pathlib import Path
 # DUMMY_MPI_RANK = 99
 
 
-def main(nprocs, rank):
+def main():
     args = process_cli()
 
     logging.basicConfig(level=args.level)
@@ -44,16 +46,24 @@ def main(nprocs, rank):
 
     # split the raw data into chunks
     T = raw.shape[0]
+    nprocs = args.nprocs
+    rank = args.rank
     chunk = raw[(rank * T) // nprocs: ((rank + 1) * T) // nprocs]
+
+    start = time.time()
+    print(f"starting process {rank} of {nprocs} on {torch.cuda.current_device()}")
 
     # process the chunk
     masks = process_chunk(chunk, args)
 
-    print(f"out: {masks.shape}")
+    end = time.time()
 
     # save the results
     outfile = outpath / f"{infile.stem}_masks_{rank}.tif"
     tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
+
+    print(f"evaluation took {(end - start) / 60} minutes")
+    print(f"out: {masks.shape}")
 
 
 def process_cli() -> argparse.Namespace:
@@ -72,6 +82,10 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
     argparser.add_argument("--stitch_threshold", default=0.0, type=float)
     argparser.add_argument("--batch_size", default=8, type=int)
+
+    argparser.add_argument_group("multiprocessing")
+    argparser.add_argument("--nprocs", default=1, type=int)
+    argparser.add_argument("--rank", default=0, type=int)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", default="INFO")
@@ -101,13 +115,14 @@ def handle_axes(raw, args):
         raw = raw.squeeze(-4)
         axes = "tyx"
 
-    print(raw.shape)
+    print(f"reordered input shape: {raw.shape} (axes: {axes})")
 
     return raw, axes
 
 
 def process_chunk(chunk, args):
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.)
+    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.,
+                                 device=torch.cuda.current_device())
 
     print(chunk.shape)
 
@@ -132,4 +147,4 @@ def process_chunk(chunk, args):
 
 if __name__ == "__main__":
 
-    main(20, 10)
+    main()
