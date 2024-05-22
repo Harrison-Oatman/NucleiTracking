@@ -1,11 +1,11 @@
 import argparse
 import logging
-import mpi4py
 import tifffile
 import numpy as np
 from cellpose import models
 from tqdm import tqdm
 
+from mpi4py import MPI
 from pathlib import Path
 
 
@@ -15,11 +15,11 @@ from pathlib import Path
 - accept multiple input files
 """
 
-DUMMY_MPI_NPROCS = 100
-DUMMY_MPI_RANK = 99
+# DUMMY_MPI_NPROCS = 100
+# DUMMY_MPI_RANK = 99
 
 
-def main():
+def main(nprocs, rank):
     args = process_cli()
 
     logging.basicConfig(level=args.level)
@@ -35,10 +35,26 @@ def main():
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else infile.parent
 
-    outpath = outpath / f"{infile.stem}_m{args.model}_d{args.diam}_masks"
+    outpath = outpath / f"{infile.stem}_m{args.model}_d{round(args.diam)}_masks"
     outpath.mkdir(exist_ok=True)
 
-    cellpose_process_file(infile, outpath, args)
+    raw = tifffile.imread(infile)
+    logging.info(f"shape of input: {raw.shape}")
+
+    raw, axes = handle_axes(raw, args)
+
+    # split the raw data into chunks
+    T = raw.shape[0]
+    chunk = raw[(rank * T) // nprocs: ((rank + 1) * T) // nprocs]
+
+    # process the chunk
+    masks = process_chunk(chunk, args)
+
+    print(f"out: {masks.shape}")
+
+    # save the results
+    outfile = outpath / f"{infile.stem}_masks_{rank}.tif"
+    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
 
 
 def process_cli() -> argparse.Namespace:
@@ -99,39 +115,23 @@ def process_chunk(chunk, args):
 
     for c in tqdm(chunk):
         results = model.eval(c,
-                     channels=[0, 0],
-                     channel_axis=-3,
-                     diameter=args.diam,
-                     cellprob_threshold=args.cellprob_thresh,
-                     flow_threshold=args.flow_thresh,
-                     do_3D=args.do_3d,
-                     stitch_threshold=args.stitch_threshold,
-                     normalize={"percentile": [1, args.top_percentile]})
+                             channels=[0, 0],
+                             channel_axis=-3,
+                             batch_size=64,
+                             diameter=args.diam,
+                             cellprob_threshold=args.cellprob_thresh,
+                             flow_threshold=args.flow_thresh,
+                             do_3D=args.do_3d,
+                             stitch_threshold=args.stitch_threshold,
+                             normalize={"percentile": [1, args.top_percentile]},)
 
         out.append(results[0])
 
     return np.array(out)
 
 
-def cellpose_process_file(infile, outpath, args):
-    raw = tifffile.imread(infile)
-    logging.info(f"shape of input: {raw.shape}")
-
-    raw, axes = handle_axes(raw, args)
-
-    # split the raw data into chunks
-    T = raw.shape[0]
-    chunk = raw[(DUMMY_MPI_RANK*T) // DUMMY_MPI_NPROCS: ((DUMMY_MPI_RANK + 1) * T) // DUMMY_MPI_NPROCS]
-
-    # process the chunk
-    masks = process_chunk(chunk, args)
-
-    print(f"out: {masks.shape}")
-
-    # save the results
-    outfile = outpath / f"{infile.stem}_masks_{DUMMY_MPI_RANK}.tif"
-    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
-
-
 if __name__ == "__main__":
-    main()
+    this_rank = MPI.COMM_WORLD.Get_rank()
+    n_procs = MPI.COMM_WORLD.Get_size()
+
+    main(100, this_rank)

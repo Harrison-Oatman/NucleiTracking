@@ -2,7 +2,7 @@ d:
 conda activate linajea
 cd tracking/nucleitracking
 
-python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model crop007 --diam 10 --do_3d --use_gpu --axes tzyx
+python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx
 
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo008\embryo008_MaxIP_bgs.tif" -o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model crop007 --diam 15 -f 1.0 -c 0.0
 python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo007\embryo007_linear.xml"
