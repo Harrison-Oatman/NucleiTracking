@@ -35,6 +35,9 @@ def main():
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else infile.parent
 
+    outpath = outpath / f"{infile.stem}_m{args.model}_d{args.diam}_masks"
+    outpath.mkdir(exist_ok=True)
+
     cellpose_process_file(infile, outpath, args)
 
 
