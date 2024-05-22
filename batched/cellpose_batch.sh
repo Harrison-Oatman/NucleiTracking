@@ -17,4 +17,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/multiprocess_cellpose.py -i "ceph/3d_microscopy/Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx --batch_size 64 --rank ${SLURM_ARRAY_TASK_ID} --nprocs ${TOTAL_JOBS}
+python NucleiTracking/batched/multiprocess_cellpose.py -i "ceph/3d_microscopy/Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx --batch_size 64 --rank ${SLURM_ARRAY_TASK_ID} --nprocs ${SLURM_NTASKS}
