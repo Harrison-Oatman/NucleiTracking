@@ -121,8 +121,7 @@ def handle_axes(raw, args):
 
 
 def process_chunk(chunk, args):
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.,
-                                 device=torch.cuda.current_device())
+    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.)
 
     print(chunk.shape)
 
