@@ -2,6 +2,14 @@ d:
 conda activate linajea
 cd tracking/nucleitracking
 
+python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model crop007 --diam 10 --do_3d --use_gpu --axes tzyx
+
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo008\embryo008_MaxIP_bgs.tif" -o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model crop007 --diam 15 -f 1.0 -c 0.0
-python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo016\embryo016_linear.xml"
-python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo018\embryo018_MaxIP_bgs.tif"  --model crop007 --diam 15 -f 1.0 -c 0.0
+python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo007\embryo007_linear.xml"
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\embryo027_MaxIP_bgs_s.tif"  --model crop007 --diam 18 -f 1.0 -c 0.0
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\Brandon\ts2.tif"  --model cyto3 --diam 40 -c 0.0
+
+cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg --pretrained_model Crop007 --chan 1 --use_gpu --diameter 10 --save_tif --stitch_threshold 0.4 --verbose
+cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg\nc11 --pretrained_model Crop007 --chan 1 --use_gpu --diameter 12 --save_tif --stitch_threshold 0.4 --verbose
+
+python scripts/3dplot.py
