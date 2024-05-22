@@ -51,6 +51,7 @@ def main():
     chunk = raw[(rank * T) // nprocs: ((rank + 1) * T) // nprocs]
 
     start = time.time()
+    torch.cuda.device(rank % torch.cuda.device_count())
     print(f"starting process {rank} of {nprocs} on {torch.cuda.current_device()}")
 
     # process the chunk
