@@ -13,6 +13,7 @@
 
 # Load your Python environment if needed
 module load cuda/11.8.0
+source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
