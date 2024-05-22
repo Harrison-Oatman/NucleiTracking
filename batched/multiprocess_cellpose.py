@@ -27,6 +27,9 @@ def main():
 
     infile = args.input
     infile = Path(infile)
+    if not infile.exists():  # try relative path
+        infile = Path().cwd() / args.input
+
     assert infile.exists(), f"file not found: {infile}"
 
     outpath = args.output
