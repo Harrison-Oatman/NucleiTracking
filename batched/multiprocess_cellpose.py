@@ -5,7 +5,6 @@ import numpy as np
 from cellpose import models
 from tqdm import tqdm
 
-from mpi4py import MPI
 from pathlib import Path
 
 
@@ -72,6 +71,7 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
     argparser.add_argument("--stitch_threshold", default=0.0, type=float)
+    argparser.add_argument("--batch_size", default=8, type=int)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", default="INFO")
@@ -117,7 +117,7 @@ def process_chunk(chunk, args):
         results = model.eval(c,
                              channels=[0, 0],
                              channel_axis=-3,
-                             batch_size=64,
+                             batch_size=args.batch_size,
                              diameter=args.diam,
                              cellprob_threshold=args.cellprob_thresh,
                              flow_threshold=args.flow_thresh,
@@ -131,7 +131,5 @@ def process_chunk(chunk, args):
 
 
 if __name__ == "__main__":
-    this_rank = MPI.COMM_WORLD.Get_rank()
-    n_procs = MPI.COMM_WORLD.Get_size()
 
-    main(100, this_rank)
+    main(20, 10)
