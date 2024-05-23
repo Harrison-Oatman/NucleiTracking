@@ -5,8 +5,7 @@
 #SBATCH --ntasks=4                    # Number of tasks
 #SBATCH --time=01:00:00                 # Time limit hrs:min:sec
 #SBATCH --mem=16G                       # Memory limit per task
-#SBATCH --partition=genx                # Partition name
-#SBATCH --nodes=1                       # Number of nodes
+#SBATCH --partition=gen                # Partition name
 #SBATCH --cpus-per-task=1               # Number of CPU cores per task
 
 
