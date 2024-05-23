@@ -13,6 +13,7 @@ Copies files from input to output directory, as a multiprocess task.
 converts data to 16-bit integer, downscales by a factor of 0.5 in x, y, z, and saves as tif.
 """
 
+
 def main():
     args = parse_args()
     logging.basicConfig(level=args.level)
@@ -23,8 +24,7 @@ def main():
     output_dir = Path(args.output)
     assert output_dir.exists(), f"directory not found: {output_dir}"
 
-    files = [f for f in input_dir.iterdir() if f.suffix == '.tif']
-
+    files = sorted([f for f in input_dir.iterdir() if f.suffix == '.tif'])
 
     process_id = args.rank
     nprocs = args.nprocs
