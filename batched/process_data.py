@@ -25,6 +25,7 @@ def main():
 
     files = [f for f in input_dir.iterdir() if f.suffix == '.tif']
 
+
     process_id = args.rank
     nprocs = args.nprocs
 
@@ -37,7 +38,7 @@ def main():
         # downscale by 0.5
         raw = skimage.transform.downscale_local_mean(raw, (2, 2, 2))
 
-        # convert to 16-bit integer
+        # convert to 16-bit
         raw = raw.astype(np.uint16)
 
         # save
@@ -53,8 +54,12 @@ def parse_args():
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
 
-    parser.add_argument("--rank", help="process id", default=None)
-    parser.add_argument("--nprocs", help="number of processes", default=None)
+    parser.add_argument("--rank", help="process id", default=None, type=int)
+    parser.add_argument("--nprocs", help="number of processes", default=None, type=int)
 
     args = parser.parse_args()
     return args
+
+
+if __name__ == "__main__":
+    main()
