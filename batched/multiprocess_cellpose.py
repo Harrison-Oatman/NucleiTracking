@@ -100,6 +100,7 @@ def handle_axes(raw, args):
 
     print(f"reordered input shape: {raw.shape} (axes: {axes})")
 
+
     return raw, axes
 
 
@@ -112,7 +113,7 @@ def process_chunk(rank, chunk, args, outpath, infile, axes):
 
     out = []
 
-    for c in tqdm(chunk):
+    for c in tqdm(chunk, desc=f"process {rank}"):
         results = model.eval(c,
                              channels=args.channels,
                              channel_axis=-3,

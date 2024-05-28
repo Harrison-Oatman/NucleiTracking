@@ -15,4 +15,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/multiprocess_cellpose.py -i "ceph/3d_microscopy/tll_Embryo002b_bgs.tif" --model 3d08 --diam 17 --stitch_threshold 0.6 --use_gpu --axes tzcyx --batch_size 64 --nprocs 4 --level WARN --channels 1 0
+python NucleiTracking/batched/multiprocess_cellpose.py -i "ceph/3d_microscopy/tll_Embryo002b_bgs.tif" --model 3d08 --diam 17 --stitch_threshold 0.6 --use_gpu --axes tzcyx --batch_size 64 --nprocs 4 --level WARN --channels 0 0
