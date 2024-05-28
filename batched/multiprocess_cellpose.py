@@ -6,18 +6,8 @@ from cellpose import models
 from tqdm import tqdm
 import torch
 import time
-
+import multiprocessing
 from pathlib import Path
-
-
-"""
---Tasks--
-- accept toml config file
-- accept multiple input files
-"""
-
-# DUMMY_MPI_NPROCS = 100
-# DUMMY_MPI_RANK = 99
 
 
 def main():
@@ -45,26 +35,18 @@ def main():
     raw, axes = handle_axes(raw, args)
 
     # split the raw data into chunks
-    T = raw.shape[0]
     nprocs = args.nprocs
-    rank = args.rank
-    chunk = raw[(rank * T) // nprocs: ((rank + 1) * T) // nprocs]
+
+    chunks = np.array_split(raw, nprocs)
 
     start = time.time()
-    torch.cuda.device(rank % torch.cuda.device_count())
-    print(f"starting process {rank} of {nprocs} on {torch.cuda.current_device()}")
 
-    # process the chunk
-    masks = process_chunk(chunk, args)
+    with multiprocessing.Pool(processes=nprocs) as pool:
+        results = pool.starmap(process_chunk, [(i, chunk, args, outpath, infile, axes) for i, chunk in enumerate(chunks)])
 
     end = time.time()
 
-    # save the results
-    outfile = outpath / f"{infile.stem}_masks_{rank}.tif"
-    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
-
     print(f"evaluation took {(end - start) / 60} minutes")
-    print(f"out: {masks.shape}")
 
 
 def process_cli() -> argparse.Namespace:
@@ -86,12 +68,12 @@ def process_cli() -> argparse.Namespace:
 
     argparser.add_argument_group("multiprocessing")
     argparser.add_argument("--nprocs", default=1, type=int)
-    argparser.add_argument("--rank", default=0, type=int)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", default="INFO")
     # argparser.add_argument("--detect_channel_axis", dest="detect_channel_axis", default=True)
     argparser.add_argument("--axes", default="tyx")
+    argparser.add_argument("--channels", nargs="+", default=[0, 0], type=int)
 
     return argparser.parse_args()
 
@@ -121,18 +103,18 @@ def handle_axes(raw, args):
     return raw, axes
 
 
-def process_chunk(chunk, args):
+def process_chunk(rank, chunk, args, outpath, infile, axes):
+    torch.cuda.set_device(rank % torch.cuda.device_count())
     device = torch.device(f"cuda:{torch.cuda.current_device()}")
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.,
-                                 device=device)
+    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30., device=device)
 
-    print(chunk.shape)
+    print(f"starting process {rank} on {torch.cuda.current_device()} with chunk shape {chunk.shape}")
 
     out = []
 
     for c in tqdm(chunk):
         results = model.eval(c,
-                             channels=[0, 0],
+                             channels=args.channels,
                              channel_axis=-3,
                              batch_size=args.batch_size,
                              diameter=args.diam,
@@ -140,13 +122,19 @@ def process_chunk(chunk, args):
                              flow_threshold=args.flow_thresh,
                              do_3D=args.do_3d,
                              stitch_threshold=args.stitch_threshold,
-                             normalize={"percentile": [1, args.top_percentile]},)
+                             normalize={"percentile": [1, args.top_percentile]})
 
         out.append(results[0])
 
-    return np.array(out)
+    masks = np.array(out)
+
+    # save the results
+    outfile = outpath / f"{infile.stem}_masks_{rank}.tif"
+    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
+
+    print(f"saved {outfile} for process {rank}")
+    return masks
 
 
 if __name__ == "__main__":
-
     main()
