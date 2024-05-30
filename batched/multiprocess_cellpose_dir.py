@@ -46,7 +46,7 @@ def main():
 
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, file, args, outpath))
+            job = pool.apply_async(process_file, (i, str(file.absolute()), args, str(outpath.absolute())))
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -116,6 +116,8 @@ def dummy(*args):
 
 
 def process_file(iter, infile, args, outpath):
+    infile = Path(infile)
+    outpath = Path(outpath)
     print(f"processing file {infile.stem} on iter {iter}")
 
     raw = tifffile.imread(infile)
