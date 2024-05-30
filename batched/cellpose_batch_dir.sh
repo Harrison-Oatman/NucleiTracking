@@ -3,10 +3,10 @@
 #SBATCH --output=output_%j.out               # Standard output and error log
 #SBATCH --ntasks=1                           # Number of tasks
 #SBATCH --time=01:00:00                      # Time limit hrs:min:sec
-#SBATCH --mem=25G                            # Memory limit
+#SBATCH --mem=64G                            # Memory limit
 #SBATCH --partition=gpu                      # Partition name
 #SBATCH --gpus=4                             # Number of GPUs
-#SBATCH --cpus-per-task=4                    # Number of CPU cores per task
+#SBATCH --cpus-per-task=8                    # Number of CPU cores per task
 
 echo "starting task"
 
