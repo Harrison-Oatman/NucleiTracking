@@ -138,10 +138,10 @@ def process_file(rank, infile, args, outpath):
 
     # save the results
     outfile = outpath / f"{infile.stem}_masks.tif"
-    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
+    tifffile.imwrite(outfile, masks)
 
     outfile = outpath / f"{infile.stem}_probabilities.tif"
-    tifffile.imwrite(outfile, probabilities, imagej=True, metadata={"axes": axes})
+    tifffile.imwrite(outfile, probabilities)
 
     print(f"saved {outfile}")
     return masks
