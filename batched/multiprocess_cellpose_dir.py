@@ -41,7 +41,14 @@ def main():
     nprocs = args.nprocs
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-        results = pool.starmap(process_file, [(i, file, args, outpath) for i, file in enumerate(files)])
+        jobs = []
+        for i, file in enumerate(files):
+            job = pool.apply_async(process_file, (i, file, args, outpath))
+            jobs.append(job)
+
+        # Wait for all jobs to finish
+        for job in jobs:
+            job.get()
 
 
 def process_cli() -> argparse.Namespace:
