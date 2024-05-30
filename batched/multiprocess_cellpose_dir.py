@@ -17,6 +17,7 @@ import tracemalloc
 """
 
 def main():
+    print("starting main")
     args = process_cli()
 
     logging.basicConfig(level=args.level)
