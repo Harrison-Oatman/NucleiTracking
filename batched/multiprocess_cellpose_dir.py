@@ -45,7 +45,7 @@ def main():
         print(f"pool initialized in {time.time() - start} seconds")
 
         jobs = []
-        for i, file in enumerate(files):
+        for i, file in tqdm(enumerate(files)):
             job = pool.apply_async(process_file, (i, file, args, outpath))
             jobs.append(job)
 
@@ -129,7 +129,7 @@ def process_file(iter, infile, args, outpath):
 
     print(f"processing image {infile.stem} on gpu {torch.cuda.current_device()}")
 
-    print([image for image in raw])
+    print([image.shape for image in raw])
 
     results = model.eval([image for image in raw],
                          channels=[0, 0],
