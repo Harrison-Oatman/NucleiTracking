@@ -5,7 +5,7 @@
 #SBATCH --time=01:00:00                      # Time limit hrs:min:sec
 #SBATCH --mem=40G                            # Memory limit
 #SBATCH --partition=gpu                      # Partition name
-#SBATCH --gpus=4                             # Number of GPUs
+#SBATCH --gpus=1                             # Number of GPUs
 #SBATCH --cpus-per-task=4                    # Number of CPU cores per task
 
 
