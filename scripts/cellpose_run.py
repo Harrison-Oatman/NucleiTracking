@@ -17,22 +17,23 @@ This script is used to do cellpose inference on a tif movie.
 def main():
     argparser = argparse.ArgumentParser(description="script to process raw data from tif")
 
-    argparser.add_argument("-i", "--input", dest="input", help="path to raw file to process", default=None)
-    argparser.add_argument("-id", "--input_dir", dest="input_dir", help="process all tifs in directory", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument("-i", "--input", help="path to raw file to process", default=None)
+    argparser.add_argument("-id", "--input_dir", help="process all tifs in directory", default=None)
+    argparser.add_argument("-o", "--output", help="results directory", default=None)
 
     argparser.add_argument_group("cellpose keywords")
-    argparser.add_argument("--use_gpu", dest="use_gpu", default=True)
-    argparser.add_argument("--do_3d", dest="do_3d", default=False)
-    argparser.add_argument("--model", dest="model", default="nuclei")
-    argparser.add_argument("--diam", dest="diam", default=9., type=float)
-    argparser.add_argument("-c", "--cellprob_thresh", dest="cellprob_thresh", default=0.0, type=float)
-    argparser.add_argument("-f", "--flow_thresh", dest="flow_thresh", default=0.4, type=float)
+    argparser.add_argument("--use_gpu", action="store_true")
+    argparser.add_argument("--do_3d", action="store_true")
+    argparser.add_argument("--model", default="nuclei")
+    argparser.add_argument("--diam", default=9., type=float)
+    argparser.add_argument("-c", "--cellprob_thresh", default=0.0, type=float)
+    argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
 
     argparser.add_argument_group("other")
-    argparser.add_argument("-l", "--level", dest="level", default="INFO")
-    argparser.add_argument("--detect_channel_axis", dest="detect_channel_axis", default=True)
+    argparser.add_argument("-l", "--level", default="INFO")
+    argparser.add_argument("--detect_channel_axis", default=True)
+    argparser.add_argument("--axes", default="tzyxc")
 
     args = argparser.parse_args()
 
@@ -60,32 +61,47 @@ def main():
         raise ValueError("must specify input or input_dir")
 
 
+def handle_axes(raw, args):
+    """
+    Manipulates the axes of the raw data to match the expected axes of the model.
+    """
+    axes = {char: i for i, char in enumerate(args.axes)}
+    missing_axes = set("tzcyx") - set(axes.keys())
+
+    assert len(axes) == len(raw.shape), f"axes {axes} do not match shape {raw.shape}"
+    n = len(axes)
+
+    for j, missing_ax in enumerate(missing_axes):
+        axes[missing_ax] = n + j
+        raw = np.expand_dims(raw, axis=axes[missing_ax])
+
+    # reorder the axes
+    raw = np.moveaxis(raw, [axes[ax] for ax in "tzcyx"], list(range(5)))
+
+    axes = "tzcyx"
+
+    if (not args.do_3d) and (args.stitch_threshold == 0):
+        raw = raw.squeeze(-4)
+        axes = "tcyx"
+
+    print(f"reordered input shape: {raw.shape} (axes: {axes})")
+
+    return raw, axes
+
+
 def cellpose_process_file(infile, outpath, args):
-
-    outfile = Path(outpath) / f"{infile.stem}_masks.npy"
-    outtif = Path(outpath) / f"{infile.stem}_{args.model}masks.tif"
-    binout = Path(outpath) / f"{infile.stem}_binary_masks.tif"
-
-    raw = tifffile.imread(infile)
-
     model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.)
 
-    # find smallest dimension axis and move to last
-    if args.detect_channel_axis:
-        chan_axis = np.argmin(raw.shape)
-        if raw.shape[chan_axis] < 4:  # assume channel axis has less than 4 channels
-            # move channel axis to last
-            if chan_axis != -1:
-                raw = np.moveaxis(raw, chan_axis, -1)
-        else:
-            # create channel axis if none exists
-            np.expand_dims(raw, -1)
+    outtif = Path(outpath) / f"{infile.stem}_{args.model}masks.tif"
+
+    raw = tifffile.imread(infile)
+    raw, axes = handle_axes(raw, args)
 
     logging.info(f"shape of cellpose input: {raw.shape}")
 
     results = model.eval([v for v in raw],
-                         channels=[2, 1],
-                         channel_axis=-1,
+                         channels=[0, 0],
+                         channel_axis=-3,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
@@ -94,9 +110,7 @@ def cellpose_process_file(infile, outpath, args):
 
     out = np.array(results[0])
 
-    np.save(str(outfile), out)
-    tifffile.imwrite(outtif, out)
-    tifffile.imwrite(binout, (1.0 * (out > 0)).astype(np.uint8))
+    tifffile.imwrite(outtif, out, imagej=True, metadata={"axes": axes})
 
 if __name__ == "__main__":
     main()
