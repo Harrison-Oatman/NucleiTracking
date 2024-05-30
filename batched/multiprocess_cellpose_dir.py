@@ -37,14 +37,13 @@ def main():
     files = sorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
 
-    # split the files into chunks
     nprocs = args.nprocs
 
     with multiprocessing.Pool(processes=nprocs) as pool:
         jobs = []
         for i, file in enumerate(files):
             print(file)
-            job = pool.apply_async(process_file, (i, file, args, outpath))
+            job = pool.apply_async(dummy, (i, file, args, outpath))
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -105,6 +104,12 @@ def handle_axes(raw, args):
     print(f"reordered input shape: {raw.shape} (axes: {axes})")
 
     return raw, axes
+
+
+def dummy(*args):
+    # sleep
+    time.sleep(1)
+    return None
 
 
 def process_file(rank, infile, args, outpath):
