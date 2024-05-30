@@ -42,7 +42,14 @@ def main():
     start = time.time()
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-        results = pool.starmap(process_chunk, [(i, chunk, args, outpath, infile, axes) for i, chunk in enumerate(chunks)])
+        jobs = []
+        for i, chunk in enumerate(chunks):
+            job = pool.apply_async(process_chunk, (i, chunk, args, outpath, infile, axes))
+            jobs.append(job)
+
+        # Wait for all jobs to finish
+        for job in jobs:
+            job.get()
 
     end = time.time()
 
@@ -85,21 +92,23 @@ def handle_axes(raw, args):
     axes = {char: i for i, char in enumerate(args.axes)}
     missing_axes = set("tzcyx") - set(axes.keys())
 
+    assert len(axes) == len(raw.shape), f"axes {axes} do not match shape {raw.shape}"
+    n = len(axes)
+
     for j, missing_ax in enumerate(missing_axes):
-        axes[missing_ax] = len(axes) + j
+        axes[missing_ax] = n + j
         raw = np.expand_dims(raw, axis=axes[missing_ax])
 
     # reorder the axes
     raw = np.moveaxis(raw, [axes[ax] for ax in "tzcyx"], list(range(5)))
 
-    axes = "tzyx"
+    axes = "tzcyx"
 
     if (not args.do_3d) and (args.stitch_threshold == 0):
         raw = raw.squeeze(-4)
-        axes = "tyx"
+        axes = "tcyx"
 
     print(f"reordered input shape: {raw.shape} (axes: {axes})")
-
 
     return raw, axes
 
@@ -134,7 +143,6 @@ def process_chunk(rank, chunk, args, outpath, infile, axes):
     tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
 
     print(f"saved {outfile} for process {rank}")
-    return masks
 
 
 if __name__ == "__main__":
