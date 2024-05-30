@@ -28,12 +28,14 @@ def main():
         inpath = Path().cwd() / args.input
 
     assert inpath.exists(), f"directory not found: {inpath}"
+    print(f"processing files in {inpath}")
 
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else inpath.parent / f"cellpose_results_{time.time()}"
     outpath.mkdir(exist_ok=True)
 
     files = sorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    print(f"found {len(files)} tif files")
 
     # split the files into chunks
     nprocs = args.nprocs
