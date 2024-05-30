@@ -6,10 +6,14 @@ python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\inte
 
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo008\embryo008_MaxIP_bgs.tif" -o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model crop007 --diam 15 -f 1.0 -c 0.0
 python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo007\embryo007_linear.xml"
-python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\embryo027_MaxIP_bgs_s.tif"  --model crop007 --diam 18 -f 1.0 -c 0.0
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\tll_embryo002\tll_embryo002a_rot_bgs_Probabilities.tiff #1.tif"  --model nuclei --diam 18 -f 1.0 -c 0.0
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\Brandon\ts2.tif"  --model cyto3 --diam 40 -c 0.0
+
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2\Recon_fused_tp_150_ch_0.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes zyx
 
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg --pretrained_model Crop007 --chan 1 --use_gpu --diameter 10 --save_tif --stitch_threshold 0.4 --verbose
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg\nc11 --pretrained_model Crop007 --chan 1 --use_gpu --diameter 12 --save_tif --stitch_threshold 0.4 --verbose
+
+python batched/multiprocess_cellpose_dir.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2" --use_gpu --model 3d08 --diam 10 --do_3d --axes zyx
 
 python scripts/3dplot.py
