@@ -8,6 +8,7 @@
 #SBATCH --gpus=4                             # Number of GPUs
 #SBATCH --cpus-per-task=4                    # Number of CPU cores per task
 
+echo "starting task"
 
 # Load your Python environment if needed
 module load cuda/11.8.0
