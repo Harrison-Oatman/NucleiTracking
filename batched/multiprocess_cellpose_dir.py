@@ -43,6 +43,7 @@ def main():
     with multiprocessing.Pool(processes=nprocs) as pool:
         jobs = []
         for i, file in enumerate(files):
+            print(file)
             job = pool.apply_async(process_file, (i, file, args, outpath))
             jobs.append(job)
 
