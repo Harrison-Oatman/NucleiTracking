@@ -39,7 +39,7 @@ def get_sister_distances(spots_df, tracklets, div_start, div_end) -> (np.array, 
     returns (n_sl, n_fl) array of distances,
     (n_sl, 3) array of indices (index, closest_parent_index, closest_sister_index)
     """
-    division_spots = spots_df[(spots_df["FRAME"] < div_end) & (spots_df["FRAME"] >= div_start)]
+    division_spots = spots_df[(spots_df["FRAME"] >= div_start)]
     division_tracklets = tracklets[(tracklets["start_time"] < div_end) & (tracklets["end_time"] > div_end)]
 
     # subset the full length tracklets and the shorter length tracklets
@@ -60,6 +60,9 @@ def get_sister_distances(spots_df, tracklets, div_start, div_end) -> (np.array, 
         earlier_fl_spots = spots_fl[spots_fl["FRAME"] < spot["FRAME"]]
         now_or_later_fl_spots = spots_fl[spots_fl["FRAME"] >= spot["FRAME"]]
 
+        if len(earlier_fl_spots) == 0 or len(now_or_later_fl_spots) == 0:
+            continue
+
         # for each track id get last spot from earlier fl spots
         prev_frame_fl_spots = earlier_fl_spots.groupby("track_id").last()
         this_or_next_fl_spots = now_or_later_fl_spots.groupby("track_id").first()
@@ -74,10 +77,17 @@ def get_sister_distances(spots_df, tracklets, div_start, div_end) -> (np.array, 
         distance = (np.sqrt((ms_x - po_x) ** 2 + (ms_y - po_y) ** 2))
         distances.append(distance)
 
-        # get the indices of the closest parent and sister
-        closest_parent = prev_frame_fl_spots["ID"].iloc[np.argmin(distance)]
-        closest_sister = this_or_next_fl_spots["ID"].iloc[np.argmin(distance)]
-        indices.append((spot["ID"], closest_parent, closest_sister))
+        try:
+            # get the indices of the closest parent and sister
+            closest_parent = prev_frame_fl_spots["ID"].iloc[np.argmin(distance)]
+            closest_sister = this_or_next_fl_spots["ID"].iloc[np.argmin(distance)]
+            indices.append((spot["ID"], closest_parent, closest_sister))
+        except IndexError:
+            print(f"no closest parent or sister for spot {spot['ID']}")
+            print(prev_frame_fl_spots)
+            print(this_or_next_fl_spots)
+            print(distance)
+            continue
 
     return np.array(distances), indices
 
@@ -129,8 +139,8 @@ def map_divisions(spots_df, graph, n_divisions, savepath=None) -> (nx.DiGraph, l
         distances, indices = get_sister_distances(spots_df, tracklets, div_start, div_end)
         sorted_distances = np.sort(distances, axis=1)
 
-        # get the minimum second-closest neighbor distance
-        d_max = np.min(sorted_distances[:, 1]) * 0.8
+        # get the second-smallest second-closest neighbor distance
+        d_max = sorted(sorted_distances[:, 1])[1]
 
         print(d_max)
 
