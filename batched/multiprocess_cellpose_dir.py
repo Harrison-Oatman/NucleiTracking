@@ -39,7 +39,11 @@ def main():
 
     nprocs = args.nprocs
 
+    start = time.time()
+
     with multiprocessing.Pool(processes=nprocs) as pool:
+        print(f"pool initialized in {time.time() - start} seconds")
+
         jobs = []
         for i, file in enumerate(files):
             job = pool.apply_async(process_file, (i, file, args, outpath))
@@ -111,13 +115,15 @@ def dummy(*args):
     return None
 
 
-def process_file(rank, infile, args, outpath):
+def process_file(iter, infile, args, outpath):
+    print(f"processing file {infile.stem} on iter {iter}")
+
     raw = tifffile.imread(infile)
     raw, axes = handle_axes(raw, args)
 
     print(raw.shape)
 
-    torch.cuda.set_device(rank % torch.cuda.device_count())
+    torch.cuda.set_device(iter % torch.cuda.device_count())
     device = torch.device(f"cuda:{torch.cuda.current_device()}")
     model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30., device=device)
 
