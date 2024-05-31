@@ -109,12 +109,6 @@ def handle_axes(raw, args):
     return raw, axes
 
 
-def dummy(*args):
-    # sleep
-    time.sleep(1)
-    return None
-
-
 def process_file(iter, infile, args, outpath):
     infile = Path(infile)
     outpath = Path(outpath)
