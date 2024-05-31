@@ -140,7 +140,7 @@ def process_chunk(rank, chunk, args, outpath, infile, axes):
 
     # save the results
     outfile = outpath / f"{infile.stem}_masks_{rank}.tif"
-    tifffile.imwrite(outfile, masks, imagej=True, metadata={"axes": axes})
+    tifffile.imwrite(outfile, masks)
 
     print(f"saved {outfile} for process {rank}")
 
