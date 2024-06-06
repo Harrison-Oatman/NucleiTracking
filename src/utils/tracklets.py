@@ -64,7 +64,7 @@ def compute_tracklets(spots: pd.DataFrame, edges: pd.DataFrame, t_delta=0.25):
     return spots, tracklets
 
 
-def ap_axis_position(spots, tracklets, anterior, posterior):
+def old_ap_axis_position(spots, tracklets, anterior, posterior):
     x_a, y_a = anterior
     x_b, y_b = posterior
 
@@ -83,6 +83,19 @@ def ap_axis_position(spots, tracklets, anterior, posterior):
     tracklets["sink_edge_distance"] = tracklets.index.map(spots.groupby("TRACKLET_ID")["distance_to_edge"].last())
 
     return spots, tracklets
+
+
+def ap_axis_position(spots, anterior, posterior):
+    x_a, y_a = anterior
+    x_b, y_b = posterior
+
+    x, y = spots["POSITION_X"] - x_a, spots["POSITION_Y"] - y_a
+    x_ref, y_ref = x_b - x_a, y_b - y_a
+
+    spots["ap_position"] = (x * x_ref + y * y_ref) / (x_ref ** 2 + y_ref ** 2)
+    spots["edge_position"] = (x * y_ref - y * x_ref) / (x_ref ** 2 + y_ref ** 2)
+
+    return spots
 
 
 def identify_peaks(start_times):
@@ -203,7 +216,7 @@ def tracklet_from_path(tracking_path, root, t_delta=0.25, anterior=None, posteri
         posterior = posterior or (spots["POSITION_X"].max(), spots["POSITION_Y"].max())
 
     if anterior and posterior:
-        spots, tracklets = ap_axis_position(spots, tracklets, anterior, posterior)
+        spots, tracklets = old_ap_axis_position(spots, tracklets, anterior, posterior)
 
     return spots, edges, tracks, tracklets
 
@@ -258,6 +271,10 @@ def import_tracklets(datapath, roots):
             "initial_y": group["POSITION_Y"].first(),
             "final_x": group["POSITION_X"].last(),
             "final_y": group["POSITION_Y"].last(),
+            "initial_x_um": group["um_x"].first(),
+            "initial_y_um": group["um_y"].first(),
+            "final_x_um": group["um_x"].last(),
+            "final_y_um": group["um_y"].last(),
             "track_id": group["track_id"].first(),
             "mean_edge_distance": group["um_from_edge"].mean(),
         }
@@ -273,6 +290,8 @@ def import_tracklets(datapath, roots):
         spots_df["cycle"] = spots_df["tracklet_id"].map(tracklets_df["cycle"])
         tracklets_df["embryo"] = root
         tracklets_df["tracklet_id"] = tracklets_df.index
+
+        spots_df = ap_axis_position(spots_df,[metadata["a_x"], metadata["a_y"]], [metadata["p_x"], metadata["p_y"]])
 
         sink_to_tracklet = {idx: tracklet for tracklet, idx in tracklets_df["sink_spot"].items()}
         sink_to_tracklet[0] = -1
