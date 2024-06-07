@@ -5,7 +5,7 @@
 #SBATCH --time=02:30:00               # Time limit hrs:min:sec
 #SBATCH --mem=250G                     # Memory limit (total)
 #SBATCH --partition=gen               # Partition name
-#SBATCH --cpus-per-task=32             # Number of CPU cores per task
+#SBATCH --cpus-per-task=32              # Number of CPU cores per task
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose

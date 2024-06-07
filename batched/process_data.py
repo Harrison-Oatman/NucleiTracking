@@ -5,7 +5,6 @@ import argparse
 import logging
 import multiprocessing
 from pathlib import Path
-from cv2_rolling_ball import subtract_background_rolling_ball
 from tqdm import tqdm
 
 import scipy.ndimage as ndi
