@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=32              # Number of CPU cores per task
 
 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
-                   --project=process_bgs.ilp \
+                   --project=~/ceph/process_bgs.ilp \
                    --stack_along="t" \
                    --output_filename_format=~/ceph/ilastik_out/{nickname}_Probabilities.h5 \
                    "~/ceph/lightsheet2/Recon_fused_tp_*_ch_0.tif"
