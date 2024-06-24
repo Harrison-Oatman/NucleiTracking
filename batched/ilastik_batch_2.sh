@@ -19,14 +19,19 @@ FILES=$(find $FILE_DIR -name 'Recon_fused_tp_*_ch_0.tif')
 process_file() {
     local file=$1  # $1 is the first argument passed to the function, which is the file path
     local output_file="${OUTPUT_DIR}/$(basename ${file%.*})_probabilities.h5"  # Construct the output file path
-    echo "Processing file: $file"  # Print the file being processed for debugging
-    # Run ilastik on the file
+
     # Construct the ilastik command
     local ilastik_command="LAZYFLOW_TOTAL_RAM_MB=25000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
                             --project=$PROJECT_FILE \
                             --stack_along=\"t\" \
                             --output_filename_format=$output_file \
                             $file"
+
+    # Print the variables for debugging
+    echo "File: $file"
+    echo "Output File: $output_file"
+    echo "Project File: $PROJECT_FILE"
+    echo "Output Directory: $OUTPUT_DIR"
 
     # Print the command being executed for debugging purposes
     echo "Executing: $ilastik_command"
