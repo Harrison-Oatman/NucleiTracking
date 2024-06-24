@@ -21,10 +21,18 @@ process_file() {
     local output_file="${OUTPUT_DIR}/$(basename ${file%.*})_probabilities.h5"  # Construct the output file path
     echo "Processing file: $file"  # Print the file being processed for debugging
     # Run ilastik on the file
-    LAZYFLOW_TOTAL_RAM_MB=125000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
-                   --project=$PROJECT_FILE \
-                   --output_filename_format=$output_file \
-                   $file
+    # Construct the ilastik command
+    local ilastik_command="LAZYFLOW_TOTAL_RAM_MB=25000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
+                            --project=$PROJECT_FILE \
+                            --stack_along=\"t\" \
+                            --output_filename_format=$output_file \
+                            $file"
+
+    # Print the command being executed for debugging purposes
+    echo "Executing: $ilastik_command"
+
+    # Run the ilastik command
+    eval $ilastik_command
 }
 
 export -f process_file  # Export the function so it can be used by GNU Parallel
