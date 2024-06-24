@@ -28,5 +28,8 @@ process_file() {
 
 export -f process_file
 
+# Path to the locally downloaded GNU Parallel script
+PARALLEL=~/parallel
+
 # Run up to 10 ilastik instances simultaneously
-echo "$FILES" | tr ' ' '\n' | parallel -j 10 process_file
+echo "$FILES" | tr ' ' '\n' | $PARALLEL -j 10 process_file
