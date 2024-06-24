@@ -12,6 +12,8 @@ FILE_DIR="./ceph/lightsheet2"
 OUTPUT_DIR="./ceph/ilastik_out"
 PROJECT_FILE="./ceph/process_bgs.ilp"
 
+export FILE_DIR OUTPUT_DIR PROJECT_FILE
+
 # Find all files matching the pattern and store them in an array
 FILES=$(find $FILE_DIR -name 'Recon_fused_tp_*_ch_0.tif')
 
