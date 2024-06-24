@@ -19,11 +19,7 @@ FILES=$(find $FILE_DIR -name 'Recon_fused_tp_*_ch_0.tif')
 process_file() {
     local file=$1
     local output_file="${OUTPUT_DIR}/$(basename ${file%.*})_probabilities.h5"
-    LAZYFLOW_TOTAL_RAM_MB=25000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
-                   --project=$PROJECT_FILE \
-                   --stack_along="t" \
-                   --output_filename_format=$output_file \
-                   $file
+    LAZYFLOW_TOTAL_RAM_MB=25000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless --project=$PROJECT_FILE --stack_along="t" --output_filename_format=$output_file $file
 }
 
 export -f process_file
