@@ -13,4 +13,4 @@ conda activate cellpose
 echo "Running ilastik postprocessing script"
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/process_data.py -i "/mnt/home/hoatman/ceph/ilastik_out" -o "/mnt/home/hoatman/ceph/ilastik_postprocessed" --nprocs 32 --level INFO
+python NucleiTracking/batched/ilastik_postprocess.py -i "/mnt/home/hoatman/ceph/ilastik_out" -o "/mnt/home/hoatman/ceph/ilastik_postprocessed" --nprocs 32 --level INFO

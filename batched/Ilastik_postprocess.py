@@ -23,7 +23,7 @@ def process_file(infile, output_dir):
     data = data / np.max(data)
     data = convolve(data[..., 0], ball)
 
-    outfile = output_dir / infile.name
+    outfile = output_dir / infile.with_suffix(".tif").name
     tifffile.imwrite(outfile, data)
 
     logging.info(f"saved {outfile}")
@@ -49,7 +49,7 @@ def main():
             job.get()
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="script to copy and process Daniel's data")
+    parser = argparse.ArgumentParser(description="script to process ilastik h5 files with filter")
     parser.add_argument("-i", "--input_dir", help="process all tifs in directory", default=None)
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
