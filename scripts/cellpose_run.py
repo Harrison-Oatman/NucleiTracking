@@ -110,7 +110,7 @@ def cellpose_process_file(infile, outpath, args):
 
     out = np.array(results[0])
 
-    tifffile.imwrite(outtif, out, imagej=True, metadata={"axes": axes})
+    tifffile.imwrite(outtif, out)
 
 if __name__ == "__main__":
     main()
