@@ -9,17 +9,18 @@ def get_tracklet_tree(tracklets):
     tracklet_tree = Tree()
 
     tracklet_tree.add_child(name=str(int(sorted_tracklets.index[0])))
-    tracklet_tree.children[-1].add_features(start=sorted_tracklets["start_time"].iloc[0], end=sorted_tracklets["end_time"].iloc[0])
+    tracklet_tree.children[-1].add_features(start=sorted_tracklets["start_time"].iloc[0], end=sorted_tracklets["end_time"].iloc[0], cycle=0)
 
     for idx, row in sorted_tracklets.iterrows():
+        # print(row)
         idx = str(int(idx))
-        parent_idx = row["parent"]
-        if parent_idx == 0:
+        parent_idx = row["parent_tracklet"]
+        if parent_idx == -1:
             continue
         else:
             parent = tracklet_tree.search_nodes(name=str(int(parent_idx)))[0]
             parent.add_child(name=idx, dist=row["length"])
-            parent.children[-1].add_features(start=row["start_time"], end=row["end_time"])
+            parent.children[-1].add_features(start=row["start_time"], end=row["end_time"], cycle=row["cycle"])
 
     return tracklet_tree
 
@@ -52,7 +53,9 @@ def visualize_tracklet_tree(tracklet_tree: Tree, ax=None, c="black"):
         # label branch length
         x = node.end - node.dist / 2
         y = node.y
-        ax.text(x, y + 0.1, f"{round(node.dist // 1)}:{round((node.dist % 1)*60):02d}", ha="center", va="bottom")
+        if node.cycle == 11 or node.cycle == 12 or node.cycle == 13:
+            dis = round(node.dist * 60)
+            ax.text(x, y + 0.1, f"{dis // 60}:{round(dis % 60):02d}", ha="center", va="bottom")
 
         if node.children:
             x = [node.end for child in node.children]
