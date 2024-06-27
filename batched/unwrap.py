@@ -10,6 +10,7 @@ import pandas as pd
 import json
 from tqdm import tqdm
 import h5py
+from natsort import natsorted
 
 
 def find_circle(pts):
@@ -64,19 +65,6 @@ def cirlce_meanip(vals, x, z, r, tol=20, bins=500):
     series.update(df.groupby("theta")["vals"].mean())
     return np.array(series.astype(float).values)
 
-
-def order_files(files):
-    # detect first position in which strings vary
-    for i in range(len(files[0])):
-        if len(set([str(f)[i] for f in files])) > 1:
-            break
-
-    for j in range(len(files[0])):
-        if len(set([str(f)[::-1][j] for f in files])) > 1:
-            break
-
-    return sorted(files, key=lambda x: int(str(x)[i:-j]))
-
 def main():
     args = parse_args()
     logging.basicConfig(level=args.level)
@@ -95,7 +83,8 @@ def main():
     with open(output_dir / "circle_fit.json", "w") as f:
         json.dump({"x": xs.tolist(), "z": zs.tolist(), "r": rs.tolist()}, f)
 
-    files = order_files(files)
+    files = natsorted(files)
+    print(files)
 
     out = []
 
