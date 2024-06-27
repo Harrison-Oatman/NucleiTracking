@@ -63,13 +63,15 @@ def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
 def process_file(infile, output_dir):
     print("test")
     logging.info(f"processing {infile.name}")
-    raw = tifffile.imread(infile)
-    logging.info(f"read {infile.name}")
 
     outfile = output_dir / infile.name
     if outfile.exists():
         logging.info(f"skipping {outfile}, already exists.")
         return
+
+    raw = tifffile.imread(infile)
+    logging.info(f"read {infile.name}")
+
 
     # downscale by 0.5
     raw = skimage.transform.downscale_local_mean(raw, (2, 2, 2))[2:]
