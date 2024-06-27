@@ -151,9 +151,6 @@ def process_file(iter, infile, args, outpath):
     # save the results
     tifffile.imwrite(outfile, masks)
 
-    outfile = outpath / f"{infile.stem}_probabilities.tif"
-    tifffile.imwrite(outfile, probabilities)
-
     print(f"saved {outfile}")
     return masks
 
