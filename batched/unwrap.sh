@@ -12,4 +12,4 @@ conda activate cellpose
 
 echo "Running unwrap script"
 
-python NucleiTracking/batched/unwrap.py -i "/mnt/home/hoatman/ceph/ilastik_postprocessed" -o "/mnt/home/hoatman/ceph" --level INFO
+python NucleiTracking/batched/unwrap.py -i "/mnt/home/hoatman/ceph/ilastik_out" -o "/mnt/home/hoatman/ceph" --level INFO

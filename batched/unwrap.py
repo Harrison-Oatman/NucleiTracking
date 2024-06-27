@@ -9,6 +9,7 @@ from sklearn.cluster import DBSCAN
 import pandas as pd
 import json
 from tqdm import tqdm
+import h5py
 
 
 def find_circle(pts):
@@ -32,8 +33,9 @@ def make_circles(files):
 
     all_x, all_z, all_r = [], [], []
 
-    for f in files:
-        data = tifffile.imread()
+    for file in files:
+        with h5py.File(file, "r") as f:
+            data = f["exported_data"][:]
         data = data/np.max(data)
 
         circs = [find_circle(np.argwhere(data[:, i, :, 0] > 0.5)) for i in range(data.shape[1])]
@@ -98,7 +100,8 @@ def main():
     out = []
 
     for file in tqdm(files):
-        data = tifffile.imread(file)
+        with h5py.File(file, "r") as f:
+            data = f["exported_data"][:]
         data = data/np.max(data)
         unwrapped = np.array([cirlce_meanip(data[:, i, :, 0], xs[i], zs[i], rs[i]) for i in range(data.shape[1])])
 
