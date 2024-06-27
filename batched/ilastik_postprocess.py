@@ -12,6 +12,11 @@ from skimage import morphology
 
 def process_file(infile, output_dir):
     logging.info(f"processing {infile.name}")
+    outfile = output_dir / infile.with_suffix(".tif").name
+
+    if outfile.exists():
+        logging.info(f"skipping {outfile}, already exists.")
+        return
 
     with h5py.File(infile, "r") as f:
         data = f["exported_data"][:]
@@ -23,7 +28,6 @@ def process_file(infile, output_dir):
     data = data / np.max(data)
     data = convolve(data[..., 0], ball)
 
-    outfile = output_dir / infile.with_suffix(".tif").name
     tifffile.imwrite(outfile, data)
 
     logging.info(f"saved {outfile}")
