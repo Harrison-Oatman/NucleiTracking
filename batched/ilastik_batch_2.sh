@@ -22,6 +22,12 @@ process_file() {
     local file=$1  # $1 is the first argument passed to the function, which is the file path
     local output_file="${OUTPUT_DIR}/$(basename ${file%.*})_probabilities.h5"  # Construct the output file path
 
+    # if output file path exists, skip
+    if [ -f $output_file ]; then
+        echo "Output file $output_file already exists. Skipping."
+        return
+    fi
+
     # Construct the ilastik command
     local ilastik_command="LAZYFLOW_TOTAL_RAM_MB=25000 ilastik-1.4.0.post1-Linux/run_ilastik.sh --headless \
                             --project=$PROJECT_FILE \
