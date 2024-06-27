@@ -66,6 +66,11 @@ def process_file(infile, output_dir):
     raw = tifffile.imread(infile)
     logging.info(f"read {infile.name}")
 
+    outfile = output_dir / infile.name
+    if outfile.exists():
+        logging.info(f"skipping {outfile}, already exists.")
+        return
+
     # downscale by 0.5
     raw = skimage.transform.downscale_local_mean(raw, (2, 2, 2))[2:]
 
@@ -79,7 +84,6 @@ def process_file(infile, output_dir):
     # raw = raw[100:105]
 
     # save
-    outfile = output_dir / infile.name
     tifffile.imwrite(outfile, raw, imagej=True, metadata={"axes": "zyx"})
 
     logging.info(f"saved {outfile}")
