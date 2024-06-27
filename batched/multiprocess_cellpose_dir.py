@@ -112,6 +112,12 @@ def handle_axes(raw, args):
 def process_file(iter, infile, args, outpath):
     infile = Path(infile)
     outpath = Path(outpath)
+    outfile = outpath / f"{infile.stem}_masks.tif"
+
+    if outfile.exists():
+        logging.info(f"skipping {outfile}, already exists.")
+        return
+
     print(f"processing file {infile.stem} on iter {iter}")
 
     raw = tifffile.imread(infile)
@@ -143,7 +149,6 @@ def process_file(iter, infile, args, outpath):
     probabilities = np.array(results[1][0][2])
 
     # save the results
-    outfile = outpath / f"{infile.stem}_masks.tif"
     tifffile.imwrite(outfile, masks)
 
     outfile = outpath / f"{infile.stem}_probabilities.tif"
