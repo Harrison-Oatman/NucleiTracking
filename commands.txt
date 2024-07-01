@@ -14,6 +14,9 @@ python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\Brandon\ts2.t
 
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2\Recon_fused_tp_150_ch_0.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes zyx
 
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\Recon_fused_tp_202_ch_0_probabilities_convolved.tif" --model nuclei --diam 10 --do_3d --use_gpu --axes zyx
+
+
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg --pretrained_model Crop007 --chan 1 --use_gpu --diameter 10 --save_tif --stitch_threshold 0.4 --verbose
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg\nc11 --pretrained_model Crop007 --chan 1 --use_gpu --diameter 12 --save_tif --stitch_threshold 0.4 --verbose
 
