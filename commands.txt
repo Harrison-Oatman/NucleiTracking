@@ -2,7 +2,7 @@ d:
 conda activate linajea
 cd tracking/nucleitracking
 
-python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet" -o "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2" --nprocs 2
+python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\embryo001_unprocessed" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\embryo001" --nprocs 2
 
 python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx
 python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet" -o "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2" --nprocs 1

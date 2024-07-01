@@ -11,4 +11,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/process_data.py -i "/mnt/home/dalber/ceph/Light_Sheet_Data/240131_hisRFP_10s_2/2024-01-31_142621/Processed/" -o "/mnt/home/hoatman/ceph/lightsheet2" --nprocs 32 --level INFO
+python NucleiTracking/batched/process_data.py -i "/mnt/home/dalber/ceph/Light_Sheet_Data/240131_hisRFP_10s_2/2024-01-31_142621/Processed/" -o "/mnt/home/hoatman/ceph/lightsheet3" --nprocs 32 --level INFO

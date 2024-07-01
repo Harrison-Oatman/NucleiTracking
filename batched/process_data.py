@@ -76,13 +76,13 @@ def process_file(infile, output_dir):
     # downscale by 0.5
     raw = skimage.transform.downscale_local_mean(raw, (2, 2, 2))[2:]
 
-    # convert to 8-bit
-    raw = ((raw - raw.min()) / (np.quantile(raw, .9999) - raw.min())) * 65535
+    # convert to 16-bit
+    raw = ((raw - np.quantile(raw, 0.01)) / (np.quantile(raw, .9999) - raw.min())) * 65535
     raw = raw.clip(0, 65535)
     raw = raw.astype(np.uint16)
 
     # subtract background
-    raw = np.array([rolling_ball_filter(sl, 25)[0] for sl in tqdm(raw, desc=f"subtracting background {infile.name}")])
+    # raw = np.array([rolling_ball_filter(sl, 25)[0] for sl in tqdm(raw, desc=f"subtracting background {infile.name}")])
     # raw = raw[100:105]
 
     # save
