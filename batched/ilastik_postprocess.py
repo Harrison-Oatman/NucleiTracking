@@ -28,6 +28,11 @@ def process_file(infile, output_dir):
     data = data / np.max(data)
     data = convolve(data[..., 0], ball)
 
+    # convert to 16-bit
+    data = ((data - np.quantile(data, 0.01)) / (np.quantile(data, .9999) - data.min())) * 65535
+    data = data.clip(0, 65535)
+    data = data.astype(np.uint16)
+
     tifffile.imwrite(outfile, data)
 
     logging.info(f"saved {outfile}")
