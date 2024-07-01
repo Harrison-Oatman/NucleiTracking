@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=16                    # Number of CPU cores per task
 
 # Directory containing the files
-FILE_DIR="./ceph/lightsheet2"
+FILE_DIR="./ceph/lightsheet3"
 OUTPUT_DIR="./ceph/ilastik_out"
 PROJECT_FILE="./ceph/process_bgs.ilp"
 
