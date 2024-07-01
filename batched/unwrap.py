@@ -65,6 +65,7 @@ def cirlce_meanip(vals, x, z, r, tol=20, bins=500):
     series.update(df.groupby("theta")["vals"].mean())
     return np.array(series.astype(float).values)
 
+
 def main():
     args = parse_args()
     logging.basicConfig(level=args.level)
@@ -104,6 +105,7 @@ def parse_args():
     parser.add_argument("-i", "--input_dir", help="process all tifs in directory", default=None)
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
+    parser.add_argument("--nprocs", help="number of processes", default=None, type=int)
 
     args = parser.parse_args()
     return args
