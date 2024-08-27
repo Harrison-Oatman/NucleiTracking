@@ -29,6 +29,7 @@ def main():
     argparser.add_argument("-c", "--cellprob_thresh", default=0.0, type=float)
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
+    argparser.add_argument("--channels", default=None, type=int, nargs="+")
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", default="INFO")
@@ -80,7 +81,7 @@ def handle_axes(raw, args):
 
     axes = "tzcyx"
 
-    if (not args.do_3d) and (args.stitch_threshold == 0):
+    if not args.do_3d:
         raw = raw.squeeze(-4)
         axes = "tcyx"
 
@@ -97,16 +98,23 @@ def cellpose_process_file(infile, outpath, args):
     raw = tifffile.imread(infile)
     raw, axes = handle_axes(raw, args)
 
+    # normalize to percentile
+    raw = raw / np.quantile(raw, args.top_percentile / 100.0)
+    raw = np.clip(raw, 0, 1)
+
+    if args.channels is None:
+        args.channels = [0, 0]
+
     logging.info(f"shape of cellpose input: {raw.shape}")
 
     results = model.eval([v for v in raw],
-                         channels=[0, 0],
+                         channels=args.channels,
                          channel_axis=-3,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
                          do_3D=args.do_3d,
-                         normalize={"percentile": [1, args.top_percentile]})
+                         normalize={"percentile": [1, 100]})
 
     out = np.array(results[0])
 
