@@ -55,7 +55,7 @@ def visualize_tracklet_tree(tracklet_tree: Tree, ax=None, c="black"):
         y = node.y
         if node.cycle == 11 or node.cycle == 12 or node.cycle == 13:
             dis = round(node.dist * 60)
-            ax.text(x, y + 0.1, f"{dis // 60}:{round(dis % 60):02d}", ha="center", va="bottom")
+            ax.text(x, y + 0.1, f"{dis // 60}:{round(dis % 60):02d}", ha="center", va="bottom", fontsize=8, color="k")
 
         if node.children:
             x = [node.end for child in node.children]
