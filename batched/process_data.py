@@ -93,7 +93,7 @@ def process_file(infile, output_dir):
     data = np.clip(data, 0, 1, dtype=np.float16)
 
     # save
-    tifffile.imwrite(outfile, data, imagej=True, metadata={"axes": "zyx"})
+    tifffile.imwrite(outfile, data)
 
     logging.info(f"saved {outfile}")
 
