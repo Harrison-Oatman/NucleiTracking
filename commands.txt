@@ -19,6 +19,8 @@ python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confo
 
 python scripts/cellpose_run.py -id "D:\Tracking\Chetan\446_locs" -o "D:\Tracking\Chetan\cyto3_60_out" --model cyto3 --diam 60 --use_gpu --axes tcyx -t 99.0 --channels 4 0
 python scripts/cellpose_run.py -id "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test_out" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\raw\Recon_fused_tp_240_ch_0.tif" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
+
 
 
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg --pretrained_model Crop007 --chan 1 --use_gpu --diameter 10 --save_tif --stitch_threshold 0.4 --verbose
