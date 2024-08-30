@@ -1,12 +1,3 @@
-"""
-patch_picker.py
-Defines an interactive gui to add a series of cubes to a 3D image.
-1. Loads a 3D image from a tif file.
-2. Opens a 2d view of the image, where the user can left-click to add a cube and right click to remove a cube.
-        by scrolling the mouse wheel, the user can move between z slices
-3. The user can save the cubes to a csv file.
-"""
-
 import numpy as np
 import matplotlib.pyplot as plt
 import tifffile
@@ -23,10 +14,10 @@ from pathlib import Path
 
 
 BASE_PATH = Path(r"D:\Tracking\NucleiTracking\data\interim\lightsheet")
-SOURCE = 240
+SOURCE = 60
 LABEL_ITER = 512
-PATCH_SIZE = 75
-POINT_COUNT = 50
+PATCH_SIZE = 30
+POINT_COUNT = 42
 
 
 class Patch:
@@ -39,13 +30,27 @@ class Patch:
         self.label = label
 
     def coords(self, img_shape):
-        z_min = max(0, self.z - self.r)
-        z_max = min(img_shape[0], self.z + self.r)
-        y_min = max(0, self.y - self.r)
-        y_max = min(img_shape[1], self.y + self.r)
-        x_min = max(0, self.x - self.r)
-        x_max = min(img_shape[2], self.x + self.r)
+        return self._coords(img_shape, [self.r, self.r, self.r])
+
+    def _coords(self, img_shape, lengths):
+        z_min = max(0, self.z - lengths[0])
+        z_max = min(img_shape[0], self.z + lengths[0])
+        y_min = max(0, self.y - lengths[1])
+        y_max = min(img_shape[1], self.y + lengths[1])
+        x_min = max(0, self.x - lengths[2])
+        x_max = min(img_shape[2], self.x + lengths[2])
         return z_min, z_max, y_min, y_max, x_min, x_max
+
+    def normal_coords(self, img_shape, normal):
+
+        axis_lengths = [round(1.5*self.r) for _ in range(3)]
+
+        long_axis = np.argmax(np.abs(normal))
+        other_axes = [i for i in range(3) if i != long_axis]
+        for i in other_axes:
+            axis_lengths[i] = 3*self.r
+
+        return self._coords(img_shape, axis_lengths)
 
     def check_point(self, z, y, x):
         return (self.z - self.r <= z <= self.z + self.r and
@@ -124,6 +129,17 @@ def ray_line_intersection(ray_origin, ray_direction, line):
     return True, a + t2 * e1
 
 
+def get_triangle_normal(triangle, theta):
+    # theta is used to determine the sign of the normal
+    a, b, c = triangle
+    e1 = b - a
+    e2 = c - a
+    n = np.cross(e1, e2)
+    if np.dot(n, np.array([np.cos(theta), np.sin(theta), 0])) < 0:
+        n = -n
+    return n
+
+
 def y_plane_intercept(y, triangles, theta):
     mins = np.min(triangles[:, :, 1], axis=1)
     maxs = np.max(triangles[:, :, 1], axis=1)
@@ -156,11 +172,13 @@ def y_plane_intercept(y, triangles, theta):
     center = np.sum([w * pt for w, pt in zip(weights_of_intersection, pts_of_intersection)], axis=0) / sum(weights_of_intersection)
     direction = np.array([np.cos(theta), np.sin(theta)])
 
-    for pts in all_pts:
+    for i, pts in enumerate(all_pts):
         intersect, pt = ray_line_intersection(center, direction, pts)
         if intersect:
-            return pt
+            normal = get_triangle_normal(hits[i], theta)
+            return pt, normal
 
+    return None, None
 
 def ray_triangle_intersection(ray_origin, ray_direction, triangle):
     a, b, c = triangle
@@ -185,18 +203,20 @@ def golden_spiral2(n, vertices, triangles):
     y_max = np.max(vertices[:, 1])
 
     points = []
+    normals = []
     phi = np.pi * (np.sqrt(5.) - 1.)  # golden angle in radians
 
     triangle_points = np.array([vertices[tri] for tri in triangles])
 
     for i in tqdm(range(n)):
         y = y_min + (y_max - y_min) * i / n
-        new_pt = (y_plane_intercept(y, triangle_points, phi * i))
+        new_pt, normal = (y_plane_intercept(y, triangle_points, phi * i))
         if new_pt is None:
             print("warn")
             continue
         points.append([new_pt[0], y, new_pt[1]])
-    return points
+        normals.append(normal)
+    return points, normals
 
 
 # def golden_spiral(n, vertices, triangles):
@@ -230,7 +250,7 @@ def golden_spiral2(n, vertices, triangles):
 #     return points
 
 def main():
-    img = tifffile.imread(BASE_PATH / r"raw\Recon_fused_tp_240_ch_0_normalized.tif")
+    img = tifffile.imread(BASE_PATH / f"raw\\Recon_fused_tp_{SOURCE}_ch_0_normalized.tif")
     print(img.shape)
 
     viewer = napari.Viewer()
@@ -261,27 +281,27 @@ def main():
         surfaces_layer.data = (c.points, c.simplices)
         surfaces_layer.refresh()
 
-        new_points = golden_spiral2(POINT_COUNT, c.points, c.simplices)
+        new_points, normals = golden_spiral2(POINT_COUNT, c.points, c.simplices)
         golden_points.add(new_points)
 
-        for point in new_points:
+        for point, normal in zip(new_points, normals):
             global LABEL_ITER
             LABEL_ITER += 1
             new_patch = Patch(*point, LABEL_ITER)
             patches.append(new_patch)
 
-            c = new_patch.coords(img.shape)
+            c = new_patch.normal_coords(img.shape, normal)
             label_layer.data[c[0]:c[1], c[2]:c[3], c[4]:c[5]] += new_patch.label
 
         label_layer.refresh()
 
-        save_path = BASE_PATH / "patch_test" / f"{PATCH_SIZE}_{POINT_COUNT}"
+        save_path = BASE_PATH / "patch_test" / str(SOURCE) / f"{PATCH_SIZE}_{POINT_COUNT}"
         save_path.mkdir(exist_ok=True, parents=True)
         json_out = {}
-        for i, patch in enumerate(patches):
-            c = patch.coords(img.shape)
+        for i, (patch, normal) in enumerate(zip(patches, normals)):
+            c = patch.normal_coords(img.shape, normal)
             tifffile.imwrite(str(save_path / f"patch_{i}.tif"), img[c[0]:c[1], c[2]:c[3], c[4]:c[5]])
-            json_out[i] = {f"patch_{i}.tif": [[c[0], c[1]], [c[2], c[3]], [c[4], c[5]]]}
+            json_out[i] = [[c[0], c[1]], [c[2], c[3]], [c[4], c[5]]]
 
         with open(save_path / "patches.json", "w") as f:
             json.dump(json_out, f)
