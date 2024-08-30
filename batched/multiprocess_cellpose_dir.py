@@ -8,6 +8,7 @@ import torch
 import time
 import multiprocessing
 from pathlib import Path
+import natsort
 import tracemalloc
 
 """
@@ -15,6 +16,7 @@ import tracemalloc
 - accept toml config file
 - accept multiple input files
 """
+
 
 def main():
     print("starting main")
@@ -34,8 +36,9 @@ def main():
     outpath = Path(outpath) if outpath is not None else inpath.parent / f"cellpose_results_{time.time()}"
     outpath.mkdir(exist_ok=True)
 
-    files = sorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
+    np.random.shuffle(files)
 
     nprocs = args.nprocs
 
