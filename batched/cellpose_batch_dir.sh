@@ -11,8 +11,8 @@
 echo "starting task"
 
 # Load your Python environment if needed
-module load cuda/11.8.0
 module load modules/2.2-20230808
+module load cuda/11.8.0
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
