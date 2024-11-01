@@ -14,6 +14,7 @@ import numpy as np
 import h5py
 import tifffile
 import io
+import shutil
 
 
 def reconstruct(filename, output_dirname, sd, ch, t):
@@ -48,9 +49,14 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         logging.info(f"File {output_filename} already exists, skipping.")
         return
 
+    # copy file to /temp for faster processing, then read from there
+    filename = Path(filename)
+    temp_filename = Path("/temp") / filename.name
+    shutil.copy(filename, temp_filename)
+
     logging.info(f"reading {filename}")
     # Load the raw image and permute dimensions
-    with open(filename, 'rb') as f:
+    with open(temp_filename, 'rb') as f:
         file_buffer = io.BytesIO(f.read())
 
     logging.info(f"loaded {filename.name} to memory")
@@ -59,6 +65,9 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     with h5py.File(file_buffer, 'r') as h5_file:
         # Access the dataset
         raw_vol = h5_file['/Data'][:]
+
+    # delete the temp file
+    os.remove(temp_filename)
 
     logging.info(f"read {filename.name}")
     vol = np.transpose(raw_vol, (1, 0, 2))
