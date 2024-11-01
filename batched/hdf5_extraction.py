@@ -17,6 +17,7 @@ import tifffile
 
 def reconstruct(filename, output_dirname, sd, ch, t):
 
+    logging.info(f"processing {filename}")
     filename = Path(filename)
 
     if not filename.exists():
@@ -71,7 +72,6 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     # Save the reformatted image as a .tif file
     tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
-    print("Saved.")
 
     # downscale by 0.5
     vol = skimage.transform.downscale_local_mean(vol, (2, 2, 1))[2:]
@@ -114,6 +114,8 @@ def main():
     channels = sorted(set(int(t[1]) for t in tok))
     side = sorted(set(t[2].capitalize() for t in tok))
 
+    logging.info(f"Found stacks {stacks}, channels {channels}, and sides {side}.")
+
     with multiprocessing.Pool(processes=nprocs) as pool:
         jobs = []
         for s in stacks:
@@ -131,7 +133,7 @@ def main():
                     time_pattern = re.compile(f"Cam_{sd.lower()}_(\\d+).lux.h5")
                     time_points = [int(time_pattern.match(f.name).group(1)) for f in curr_files if time_pattern.match(f.name)]
 
-                    print(f"Detected {len(time_points)} time points for {stack_id}.")
+                    logging.info(f"Detected {len(time_points)} time points for {stack_id}.")
 
                     filepaths = [curr_dir / f"Cam_{sd.lower()}_{t:05d}.lux.h5" for t in sorted(time_points)]
 
