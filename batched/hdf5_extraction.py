@@ -1,12 +1,8 @@
 import skimage
-import numpy as np
-import tifffile
 import argparse
 import logging
 import multiprocessing
 from pathlib import Path
-
-
 import os
 import re
 import json
@@ -49,25 +45,30 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         logging.info(f"File {output_filename} already exists, skipping.")
         return
 
+    ### tmp method
     # copy file to /temp for faster processing, then read from there
-    filename = Path(filename)
-    temp_filename = Path("/tmp") / filename.name
-    shutil.copy(filename, temp_filename)
+    # filename = Path(filename)
+    # temp_filename = Path("/tmp") / filename.name
+    # shutil.copy(filename, temp_filename)
+    #
+    # logging.info(f"reading {filename}")
+    # # Load the raw image as a bytesteam
+    # with open(temp_filename, 'rb') as f:
+    #     file_buffer = io.BytesIO(f.read())
+    #
+    # logging.info(f"loaded {filename.name} to memory")
+    #
+    # # Open the in-memory HDF5 file
+    # with h5py.File(file_buffer, 'r') as h5_file:
+    #     # Access the dataset
+    #     raw_vol = h5_file['/Data'][:]
+    #
+    # # delete the temp file
+    # os.remove(temp_filename)
 
-    logging.info(f"reading {filename}")
-    # Load the raw image and permute dimensions
-    with open(temp_filename, 'rb') as f:
-        file_buffer = io.BytesIO(f.read())
-
-    logging.info(f"loaded {filename.name} to memory")
-
-    # Step 2: Open the in-memory HDF5 file
-    with h5py.File(file_buffer, 'r') as h5_file:
-        # Access the dataset
-        raw_vol = h5_file['/Data'][:]
-
-    # delete the temp file
-    os.remove(temp_filename)
+    # file e.g.
+    with h5py.File(filename, 'r') as h5_file:
+        raw_vol = h5_file['/Data'][:]  # stuck here
 
     logging.info(f"read {filename.name}")
     vol = np.transpose(raw_vol, (1, 0, 2))
