@@ -50,19 +50,19 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         raw_vol = h5_file['/Data'][:]  # stuck here
 
     logging.info(f"read {filename.name}")
-    vol = np.transpose(raw_vol, (1, 0, 2))
+    vol = raw_vol
 
     # Mirror sheets if from the left camera
     if info['imagingBranch']['image_plane_vectors']['cam_left_to_right'][0] == -1:
         vol = vol[:, ::-1, :]
     if info['imagingBranch']['image_plane_vectors']['cam_left_to_right'][1] == -1:
-        vol = vol[::-1, :, :]
+        vol = vol[:, :, ::-1]
 
     # Reverse Z values if sheets acquired from higher to lower Z
     z_elements = elements[2] if isinstance(elements, list) else elements.get(3)
     is_z_reversed = (z_elements['end'] - z_elements['start']) < 0
     if is_z_reversed:
-        vol = vol[:, :, ::-1]
+        vol = vol[::-1, :, :]
 
     spacing = np.array(list(info['processingInformation']['voxel_size_um'].values()))
     spacing_str = ' '.join(map(lambda x: f"{x:.6f}", spacing))
