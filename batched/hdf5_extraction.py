@@ -135,7 +135,7 @@ def main():
                         continue
 
                     time_pattern = re.compile(f"Cam_{sd.lower()}_(\\d+).lux.h5")
-                    time_points = [int(time_pattern.match(str(f)).group(1)) for f in curr_files if time_pattern.match(str(f))]
+                    time_points = [int(time_pattern.match(f.name).group(1)) for f in curr_files if time_pattern.match(f.name)]
 
                     filepaths = [curr_dir / f"Cam_{sd.lower()}_{t:05d}.lux.h5" for t in sorted(time_points)]
 
