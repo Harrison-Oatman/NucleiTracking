@@ -51,7 +51,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     # copy file to /temp for faster processing, then read from there
     filename = Path(filename)
-    temp_filename = Path("/temp") / filename.name
+    temp_filename = Path("/tmp") / filename.name
     shutil.copy(filename, temp_filename)
 
     logging.info(f"reading {filename}")
