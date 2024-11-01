@@ -19,7 +19,8 @@ if __name__ == "__main__":
     jobs = []
 
     with multiprocessing.Pool(processes=4) as pool:
-        for f in Path(f"/mnt/ceph/users/hoatman/lightsheet_20241030/raw/stack_0_channel_0_obj_left/").glob("*.h5"):
+        filepaths = list(Path(f"/mnt/ceph/users/hoatman/lightsheet_20241030/raw/stack_0_channel_0_obj_left/").glob("*.h5"))
+        for f in filepaths:
             jobs.append(pool.apply_async(main, (f)))
 
         for job in jobs:
