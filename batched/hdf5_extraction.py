@@ -128,6 +128,9 @@ def main():
 
                     # Get a list of time points in the folder
                     curr_files = list(curr_dir.glob("*.h5"))
+
+                    print(curr_files)
+
                     if not curr_files:
                         continue
 
