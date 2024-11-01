@@ -161,8 +161,8 @@ def main():
                     for f, t in zip(filepaths, sorted(time_points)):
                         jobs.append(pool.apply_async(reconstruct, (f, output_dir, sd, ch, t)))
 
-    for job in jobs:
-        job.get()
+        for job in jobs:
+            job.get()
 
 
 def parse_args():
