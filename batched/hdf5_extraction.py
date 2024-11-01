@@ -49,7 +49,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     logging.info(f"reading {filename.name}")
     # Load the raw image and permute dimensions
-    with h5py.File(filename, 'r') as h5_file:
+    with h5py.File(str(filename), 'r') as h5_file:
         raw_vol = np.empty(h5_file['/Data'].shape, dtype=h5_file['/Data'].dtype)
         h5_file['/Data'].read_direct(raw_vol)
 
