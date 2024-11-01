@@ -48,7 +48,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         logging.info(f"File {output_filename} already exists, skipping.")
         return
 
-    logging.info(f"reading {filename.name}")
+    logging.info(f"reading {filename}")
     # Load the raw image and permute dimensions
     with open(filename, 'rb') as f:
         file_buffer = io.BytesIO(f.read())
@@ -59,7 +59,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     with h5py.File(file_buffer, 'r') as h5_file:
         # Access the dataset
         raw_vol = h5_file['/Data'][:]
-    
+
     logging.info(f"read {filename.name}")
     vol = np.transpose(raw_vol, (1, 0, 2))
 
