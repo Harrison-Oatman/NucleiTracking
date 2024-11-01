@@ -158,9 +158,8 @@ def main():
 
                     filepaths = [curr_dir / f"Cam_{sd.lower()}_{t:05d}.lux.h5" for t in sorted(time_points)]
 
-                    logging.info(filepaths)
-
-                    jobs.extend([pool.apply_async(reconstruct, (f, output_dir, sd, ch, t)) for f, t in zip(filepaths, sorted(time_points))])
+                    for f, t in zip(filepaths, sorted(time_points)):
+                        jobs.append(pool.apply_async(reconstruct, (f, output_dir, sd, ch, t)))
 
     for job in jobs:
         job.get()
