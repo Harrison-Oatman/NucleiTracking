@@ -4,3 +4,4 @@ data/
 results/*
 notebooks/models/*
 notebooks/runs/*
+/figures/
