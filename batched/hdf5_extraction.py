@@ -106,7 +106,7 @@ def main():
 
     # Parsing filenames to extract file identities
     subdirs = [d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))]
-    pattern = re.compile(r'^stack\_(\d+)-?\\x?(\d*)-?\\y?(\d*)_channel_(\d+)_obj_(left|right)$')
+    pattern = re.compile(r'^stack_(\d+)_channel_(\d+)_obj_(left|right)$')
 
     print(subdirs)
 
@@ -115,8 +115,8 @@ def main():
     print(tok)
 
     stacks = sorted(set(int(t[0]) for t in tok))
-    channels = sorted(set(int(t[3]) for t in tok))
-    side = sorted(set(t[4].capitalize() for t in tok))
+    channels = sorted(set(int(t[1]) for t in tok))
+    side = sorted(set(t[2].capitalize() for t in tok))
 
     with multiprocessing.Pool(processes=nprocs) as pool:
         jobs = []
