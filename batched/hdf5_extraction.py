@@ -98,7 +98,7 @@ def main():
     assert input_dir.exists(), f"directory not found: {input_dir}"
 
     output_dir = Path(args.output)
-    assert output_dir.exists(), f"directory not found: {output_dir}"
+    output_dir.mkdir(exist_ok=True, parents=True)
     (output_dir / "downscaled").mkdir(exist_ok=True, parents=True)
     (output_dir / "mips").mkdir(exist_ok=True, parents=True)
 
