@@ -108,11 +108,7 @@ def main():
     subdirs = [d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))]
     pattern = re.compile(r'^stack_(\d+)_channel_(\d+)_obj_(left|right)$')
 
-    print(subdirs)
-
     tok = [pattern.match(d).groups() for d in subdirs if pattern.match(d)]
-
-    print(tok)
 
     stacks = sorted(set(int(t[0]) for t in tok))
     channels = sorted(set(int(t[1]) for t in tok))
@@ -129,19 +125,17 @@ def main():
                     # Get a list of time points in the folder
                     curr_files = list(curr_dir.glob("*.h5"))
 
-                    print(curr_files)
-
                     if not curr_files:
                         continue
 
                     time_pattern = re.compile(f"Cam_{sd.lower()}_(\\d+).lux.h5")
                     time_points = [int(time_pattern.match(f.name).group(1)) for f in curr_files if time_pattern.match(f.name)]
 
+                    print(f"Detected {len(time_points)} time points for {stack_id}.")
+
                     filepaths = [curr_dir / f"Cam_{sd.lower()}_{t:05d}.lux.h5" for t in sorted(time_points)]
 
                     jobs.extend([pool.apply_async(reconstruct, (f, output_dir, sd, ch, t)) for f, t in zip(filepaths, sorted(time_points))])
-
-    print(jobs)
 
     for job in jobs:
         job.get()
