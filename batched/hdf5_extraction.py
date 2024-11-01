@@ -108,7 +108,11 @@ def main():
     subdirs = [d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))]
     pattern = re.compile(r'^stack\_(\d+)-?\\x?(\d*)-?\\y?(\d*)_channel_(\d+)_obj_(left|right)$')
 
+    print(subdirs)
+
     tok = [pattern.match(d).groups() for d in subdirs if pattern.match(d)]
+
+    print(tok)
 
     stacks = sorted(set(int(t[0]) for t in tok))
     channels = sorted(set(int(t[3]) for t in tok))
