@@ -11,4 +11,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/hdf5_extraction.py -i "/mnt/ceph/users/hoatman/lightsheet_20241030/raw" -o "/mnt/ceph/users/hoatman/lightsheet_20241030/Raw image" --nprocs 4 --level INFO
+python NucleiTracking/batched/hdf5_extraction.py -i "/mnt/ceph/users/hoatman/lightsheet_20241030/raw2" -o "/mnt/ceph/users/hoatman/lightsheet_20241030/Raw image" --nprocs 4 --level INFO
