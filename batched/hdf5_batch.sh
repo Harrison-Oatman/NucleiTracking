@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=processlightsheet         # Job name
+#SBATCH --job-name=convert_hdf5         # Job name
 #SBATCH --output=output_%j.out       # Standard output and error log
 #SBATCH --ntasks=1                   # Number of tasks (cores)
 #SBATCH --time=08:00:00               # Time limit hrs:min:sec

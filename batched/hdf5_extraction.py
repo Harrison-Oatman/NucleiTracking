@@ -106,7 +106,8 @@ def main():
 
     # Parsing filenames to extract file identities
     subdirs = [d for d in os.listdir(input_dir) if os.path.isdir(os.path.join(input_dir, d))]
-    pattern = re.compile(r"^stack\_(\d+)-?\x?(\d*)-?\y?(\d*)_channel_(\d+)_obj_(left|right)$")
+    pattern = re.compile(r'^stack\_(\d+)-?\\x?(\d*)-?\\y?(\d*)_channel_(\d+)_obj_(left|right)$')
+
     tok = [pattern.match(d).groups() for d in subdirs if pattern.match(d)]
 
     stacks = sorted(set(int(t[0]) for t in tok))
