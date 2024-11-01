@@ -44,12 +44,14 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     # Skip existing files if set to do so
     if output_filename.exists():
-        print(f"File {output_filename} already exists, skipping.")
+        logging.info(f"File {output_filename} already exists, skipping.")
         return
 
     # Load the raw image and permute dimensions
     with h5py.File(filename, 'r') as h5_file:
         raw_vol = h5_file['/Data'][:]
+
+    logging.info(f"read {filename.name}")
     vol = np.transpose(raw_vol, (1, 0, 2))
 
     # Mirror sheets if from the left camera
