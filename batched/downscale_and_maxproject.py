@@ -24,9 +24,8 @@ def process_file(infile, output_dir):
     # downscale by 0.5
     raw = skimage.transform.downscale_local_mean(raw, (1, 2, 2))[2:]
 
-    # convert to 16-bit
-    data = (raw - raw.max()) / (raw.max() - raw.min())
-    data = np.clip(data, 0, 1, dtype=np.float16)
+    # globally normalize and convert to 16 bit
+    data = raw.astype(np.int16)
 
     # save
     tifffile.imwrite(downscaled_outfile, data)
