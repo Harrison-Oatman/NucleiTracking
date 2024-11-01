@@ -74,7 +74,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
 
     # downscale by 0.5
-    vol = skimage.transform.downscale_local_mean(vol, (2, 2, 1))[2:]
+    vol = skimage.transform.downscale_local_mean(vol, (1, 2, 2))
 
     # globally normalize and convert to 16 bit
     data = vol.astype(np.int16)
