@@ -1,9 +1,15 @@
 import h5py
 from pathlib import Path
 
-filename = Path(r"/mnt/home/hoatman/ceph/lightsheet_20241030/raw/stack_0_channel_0_obj_left/Cam_left_00000.lux.h5")
 
-with h5py.File(filename, 'r') as h5_file:
-    raw_vol = h5_file['/Data'][:]
+def main():
+    filename = Path(r"/mnt/home/hoatman/ceph/lightsheet_20241030/raw/stack_0_channel_0_obj_left/Cam_left_00000.lux.h5")
 
-print(raw_vol.shape)
+    with h5py.File(filename, 'r') as h5_file:
+        raw_vol = h5_file['/Data'][:]
+
+    print(raw_vol.shape)
+
+
+if __name__ == "__main__":
+    main()
