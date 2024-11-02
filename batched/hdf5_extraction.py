@@ -73,16 +73,18 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     # Save the reformatted image as a .tif file
     tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
 
+    out_dtype = vol.dtype
+
     # downscale by 0.5
     vol = skimage.transform.downscale_local_mean(vol, (1, 2, 2))
 
     # save
     downscaled_outfile = output_dirname / "downscaled" / output_filename.name.replace(".tif", "_downscaled.tif")
-    tifffile.imwrite(downscaled_outfile, vol, dtype=vol.dtype)
+    tifffile.imwrite(downscaled_outfile, vol, dtype=out_dtype)
 
     mip = np.max(vol, axis=0)
     mips_outfile = output_dirname / "mips" / output_filename.name.replace(".tif", "_mip.tif")
-    tifffile.imwrite(mips_outfile, mip, dtype=vol.dtype)
+    tifffile.imwrite(mips_outfile, mip, dtype=out_dtype)
 
     logging.info(f"saved {output_filename}")
 
