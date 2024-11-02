@@ -79,7 +79,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     vol = skimage.transform.downscale_local_mean(vol, (1, 2, 2))
 
     # convert to int 16
-    vol = np.floor(vol, dtype=np.int16)
+    vol = np.floor(vol).astype(np.int16)
 
     # save
     downscaled_outfile = output_dirname / "downscaled" / output_filename.name.replace(".tif", "_downscaled.tif")
