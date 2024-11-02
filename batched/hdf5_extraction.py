@@ -78,13 +78,16 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     # downscale by 0.5
     vol = skimage.transform.downscale_local_mean(vol, (1, 2, 2))
 
+    # convert to int 16
+    vol = vol.astype(np.int16)
+
     # save
     downscaled_outfile = output_dirname / "downscaled" / output_filename.name.replace(".tif", "_downscaled.tif")
-    tifffile.imwrite(downscaled_outfile, vol, dtype=out_dtype)
+    tifffile.imwrite(downscaled_outfile, vol, dtype=np.int16)
 
     mip = np.max(vol, axis=0)
     mips_outfile = output_dirname / "mips" / output_filename.name.replace(".tif", "_mip.tif")
-    tifffile.imwrite(mips_outfile, mip, dtype=out_dtype)
+    tifffile.imwrite(mips_outfile, mip, dtype=np.int16)
 
     logging.info(f"saved {output_filename}")
 
