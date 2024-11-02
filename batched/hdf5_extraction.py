@@ -50,13 +50,13 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         raw_vol = h5_file['/Data'][:]  # stuck here
 
     logging.info(f"read {filename.name}")
-    vol = raw_vol
+    vol = np.array(raw_vol).astype(np.int16)
 
     # Mirror sheets if from the left camera
     if info['imagingBranch']['image_plane_vectors']['cam_left_to_right'][0] == -1:
-        vol = vol[:, ::-1, :]
-    if info['imagingBranch']['image_plane_vectors']['cam_left_to_right'][1] == -1:
         vol = vol[:, :, ::-1]
+    if info['imagingBranch']['image_plane_vectors']['cam_left_to_right'][1] == -1:
+        vol = vol[:, ::-1, :]
 
     # Reverse Z values if sheets acquired from higher to lower Z
     z_elements = elements[2] if isinstance(elements, list) else elements.get(3)
@@ -76,16 +76,13 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     # downscale by 0.5
     vol = skimage.transform.downscale_local_mean(vol, (1, 2, 2))
 
-    # globally normalize and convert to 16 bit
-    data = vol.astype(np.int16)
-
     # save
     downscaled_outfile = output_dirname / "downscaled" / output_filename.name.replace(".tif", "_downscaled.tif")
-    tifffile.imwrite(downscaled_outfile, data)
+    tifffile.imwrite(downscaled_outfile, vol, dtype=vol.dtype)
 
-    mip = np.max(data, axis=0)
+    mip = np.max(vol, axis=0)
     mips_outfile = output_dirname / "mips" / output_filename.name.replace(".tif", "_mip.tif")
-    tifffile.imwrite(mips_outfile, mip)
+    tifffile.imwrite(mips_outfile, mip, dtype=vol.dtype)
 
     logging.info(f"saved {output_filename}")
 
