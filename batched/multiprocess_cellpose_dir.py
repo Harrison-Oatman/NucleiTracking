@@ -121,7 +121,7 @@ def process_file(iter, infile, args, outpath):
         logging.info(f"skipping {outfile}, already exists.")
         return
 
-    print(f"processing file {infile.stem} on iter {iter}")
+    logging.info(f"processing file {infile.stem} on iter {iter}")
 
     raw = tifffile.imread(infile)
     raw, axes = handle_axes(raw, args)
@@ -132,7 +132,7 @@ def process_file(iter, infile, args, outpath):
     device = torch.device(f"cuda:{torch.cuda.current_device()}")
     model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30., device=device)
 
-    print(f"processing image {infile.stem} on gpu {torch.cuda.current_device()}")
+    logging.info(f"processing image {infile.stem} on gpu {torch.cuda.current_device()}")
 
     print([image.shape for image in raw])
 
