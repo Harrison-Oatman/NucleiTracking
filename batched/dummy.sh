@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1                      # Number of tasks (cores)
 #SBATCH --time=08:00:00                 # Time limit hrs:min:sec
 #SBATCH --mem=250G                      # Memory limit (total)
-#SBATCH --partition=gen                 # Partition name
+#SBATCH --partition=genx                 # Partition name
 #SBATCH --cpus-per-task=4               # Number of CPU cores per task
 
 source ~/miniconda3/etc/profile.d/conda.sh
