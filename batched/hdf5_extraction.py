@@ -35,7 +35,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     if sd.lower() == "right":
         curr_ang = (curr_ang + 180) % 360
-    ang_str = f"{int(curr_ang):03d}.{int((curr_ang - int(curr_ang)) * 10):01d}"
+    ang_str = f"{int(curr_ang):03d}.0"
 
     # Output file name
     output_filename = Path(output_dirname) / f"img_ch{ch}_ang{ang_str}_time{t:03d}.tif"
