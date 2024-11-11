@@ -30,11 +30,12 @@ def main():
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
     argparser.add_argument("--channels", default=None, type=int, nargs="+")
+    argparser.add_argument("--batch_size", default=8, type=int)
 
     argparser.add_argument_group("other")
     argparser.add_argument("-l", "--level", default="INFO")
-    argparser.add_argument("--detect_channel_axis", default=True)
     argparser.add_argument("--axes", default="tzyxc")
+    argparser.add_argument("-p", "--save_probs", action="store_true")
 
     args = argparser.parse_args()
 
@@ -55,6 +56,8 @@ def main():
         input_dir = Path(input_dir)
         assert input_dir.exists(), f"directory not found: {input_dir}"
         files = [f for f in input_dir.iterdir() if f.suffix == '.tif']
+        outpath = Path(outpath) if outpath is not None else input_dir / "cellpose_out"
+        outpath.mkdir(exist_ok=True, parents=True)
         for infile in files:
             cellpose_process_file(infile, outpath, args)
 
@@ -109,6 +112,7 @@ def cellpose_process_file(infile, outpath, args):
 
     results = model.eval([v for v in raw],
                          channels=args.channels,
+                         batch_size=args.batch_size,
                          channel_axis=-3,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
@@ -117,8 +121,14 @@ def cellpose_process_file(infile, outpath, args):
                          normalize={"percentile": [1, 100]})
 
     out = np.array(results[0])
-
     tifffile.imwrite(outtif, out)
+
+    # save probabilities
+    if not args.save_probs:
+        return
+
+    outprob = Path(outpath) / f"{infile.stem}_{args.model}probs.tif"
+    tifffile.imwrite(outprob, [results[1][k][2] for k in range(len(results[1]))])
 
 if __name__ == "__main__":
     main()
