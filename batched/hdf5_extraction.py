@@ -70,6 +70,11 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     with open(spacing_filename, 'w') as f:
         f.write('')
 
+    # save the json file
+    json_filename = output_dirname / "json" / output_filename.name.replace(".tif", ".json")
+    with open(json_filename, 'w') as f:
+        json.dump(info, f, indent=4)
+
     # Save the reformatted image as a .tif file
     tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
 
@@ -103,6 +108,7 @@ def main():
     output_dir.mkdir(exist_ok=True, parents=True)
     (output_dir / "downscaled").mkdir(exist_ok=True, parents=True)
     (output_dir / "mips").mkdir(exist_ok=True, parents=True)
+    (output_dir / "json").mkdir(exist_ok=True, parents=True)
 
     nprocs = args.nprocs
 
