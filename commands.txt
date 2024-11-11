@@ -2,6 +2,9 @@ d:
 conda activate linajea
 cd tracking/nucleitracking
 
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\2024_10_30\recon\Substack (1-344).tif" --model cyto3 --diam 20 --use_gpu --do_3d -p --axes zyx -t 99.999
+
+
 python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\embryo001_unprocessed" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\embryo001" --nprocs 2
 
 python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx
@@ -18,9 +21,10 @@ python scripts/cellpose_run.py -i "D:\Tracking\evan\4\raw.tif" --model nuclei --
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\zld\MAX_63X_bgs_16_Probabilities.tiff" --model crop007 --diam 25 --use_gpu --axes tyx -t 99
 
 python scripts/cellpose_run.py -id "D:\Tracking\Chetan\446_locs" -o "D:\Tracking\Chetan\cyto3_60_out" --model cyto3 --diam 60 --use_gpu --axes tcyx -t 99.0 --channels 4 0
-python scripts/cellpose_run.py -id "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test_out" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
-python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\raw\Recon_fused_tp_240_ch_0.tif" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
+python scripts/cellpose_run.py -id "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test\60\30_42" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test_out\60" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\raw\Recon_fused_tp_60_ch_0_normalized_bgs.tif" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
 
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\external\bothma2014\nuclei.tif" --model cyto3 --diam 15 --use_gpu --axes tyx -t 99.0
 
 
 cellpose --dir D:\Tracking\NucleiTracking\data\interim\confocal\emily\to_seg --pretrained_model Crop007 --chan 1 --use_gpu --diameter 10 --save_tif --stitch_threshold 0.4 --verbose
