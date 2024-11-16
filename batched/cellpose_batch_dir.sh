@@ -17,4 +17,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/multiprocess_cellpose_dir.py -i "ceph/lightsheet_20241104/raw_image/downscaled"  --model cyto3 --diam 17 -t 99.999 --use_gpu --axes tyx --batch_size 128 --nprocs 4 --level INFO
+python NucleiTracking/batched/multiprocess_cellpose_dir.py -i "ceph/lightsheet_20241104/raw_image/downscaled/recon"  --model nuclei --diam 13 -t 99.999 --use_gpu --do_3d --axes zyx --batch_size 128 --nprocs 4 --level INFO
