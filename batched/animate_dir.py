@@ -23,7 +23,7 @@ def main():
     assert inpath.exists(), f"directory not found: {inpath}"
     print(f"processing files in {inpath}")
 
-    tmpdir = args.input_dir / "tmp"
+    tmpdir = Path(args.input_dir) / "tmp"
     if not tmpdir.exists():
         tmpdir.mkdir()
 
