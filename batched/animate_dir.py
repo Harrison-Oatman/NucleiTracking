@@ -70,8 +70,8 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument("-r", "--renderer", default="mip")
 
     argparser.add_argument_group("animation keywords")
-    argparser.add_argument("-i", "--angle_init", default=0, type=float)
-    argparser.add_argument("-f", "--angle_final", default=0, type=float)
+    argparser.add_argument("--angle_init", default=0, type=float)
+    argparser.add_argument("--angle_final", default=0, type=float)
     argparser.add_argument("-n", "--frames_per_file", default=1, type=int)
 
     argparser.add_argument_group("multiprocessing")
