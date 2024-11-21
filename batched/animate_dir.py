@@ -59,7 +59,8 @@ def main():
     print(f"done in {time.time() - start} seconds")
     print(f"writing to {outfile}")
 
-    tifffile.imwrite(outfile, np.array([tifffile.imread(f) for f in tmpdir.iterdir()]))
+    outfiles = natsort.natsorted([f for f in tmpdir.iterdir()])
+    tifffile.imwrite(outfile, np.array([tifffile.imread(f) for f in outfiles]))
 
 
 def process_cli() -> argparse.Namespace:
@@ -93,7 +94,7 @@ def process_file(iter, infile, angles, args, tmpdir):
         i = iter * fpf + i
 
         viewer = napari.view_image(volume, name="volume", rendering=args.renderer, scale=(1, 1, 1), translate=(0, 0, 0),
-                         rotate=(0, 0, angle), ndisplay=3)
+                         rotate=(angle, 0, 90), ndisplay=3)
         out = viewer.screenshot()
         tifffile.imwrite(tmpdir / f"{i:04d}.tif", out)
         viewer.close()
