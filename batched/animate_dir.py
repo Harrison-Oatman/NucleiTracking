@@ -90,9 +90,8 @@ def process_file(iter, infile, angles, args, tmpdir):
         fpf = len(angles)
         i = iter * fpf + i
 
-        viewer = napari.Viewer(ndisplay=3)
-        viewer.add_image(volume, name="volume", rendering=args.renderer, scale=(1, 1, 1), translate=(0, 0, 0),
-                         rotate=(0, 0, angle))
+        viewer = napari.view_image(volume, name="volume", rendering=args.renderer, scale=(1, 1, 1), translate=(0, 0, 0),
+                         rotate=(0, 0, angle), ndisplay=3)
         out = viewer.screenshot()
         tifffile.imwrite(tmpdir / f"{i:04d}.tif", out)
 
