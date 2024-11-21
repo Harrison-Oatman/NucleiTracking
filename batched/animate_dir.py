@@ -23,7 +23,9 @@ def main():
     assert inpath.exists(), f"directory not found: {inpath}"
     print(f"processing files in {inpath}")
 
-    tmpdir = Path("/tmp/")
+    tmpdir = args.input_dir / "tmp"
+    if not tmpdir.exists():
+        tmpdir.mkdir()
 
     outfile = args.output
     outfile = Path(outfile) if outfile is not None else inpath.parent / f"animation_{time.time()}.tif"
@@ -94,6 +96,7 @@ def process_file(iter, infile, angles, args, tmpdir):
                          rotate=(0, 0, angle), ndisplay=3)
         out = viewer.screenshot()
         tifffile.imwrite(tmpdir / f"{i:04d}.tif", out)
+        viewer.close()
 
 
 if __name__ == "__main__":
