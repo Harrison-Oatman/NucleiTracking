@@ -33,7 +33,7 @@ def main():
     hi = args.sigma_high
 
     outfile = args.output
-    outfile = Path(outfile) if outfile is not None else inpath.parent / f"dog_lo{lo}_hi{hi}.csv"
+    outfile = Path(outfile) if outfile is not None else inpath.parent / f"dog_lo{lo}_hi{hi}_min{args.min_distance}_thresh{args.threshold_abs}.csv"
 
     files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
