@@ -26,7 +26,8 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
             spot_attributes = spot.attrib
             spot_attributes = {key: float(value) for key, value in spot_attributes.items() if key != "name"}
             spot_attributes["ID"] = spot_id
-            spot_attributes["roi"] = [float(pt) for pt in spot.text.split(" ")]
+            if spot.text:
+                spot_attributes["roi"] = [float(pt) for pt in spot.text.split(" ")]
             spots_collect.append(spot_attributes)
 
     spots_df = pd.DataFrame(spots_collect)
@@ -46,7 +47,9 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
     spots_df["track_id"] = [spot_tracks[idx] for idx in spots_df["ID"]]
 
     # remove positional outliers
+    print("starting positional outlier detection")
     spots_df["position_cluster"] = detect_positional_outliers(spots_df)
+    print("completed positional outlier detection")
     largest_cluster = spots_df.groupby("position_cluster").size().idxmax()
     spots_df = spots_df[spots_df["position_cluster"] == largest_cluster]
 
