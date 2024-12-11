@@ -50,6 +50,13 @@ def main():
 
             peak_maps = [job.get() for job in jobs]
 
+    else:
+        peak_maps = []
+        for file in natsort.natsorted(w_path.glob("*_peaks.csv")):
+
+            df = pd.read_csv(file)
+            peak_maps.append({row["Unnamed: 0"]: np.array([row["z"], row["y"], row["x"]]) for i, row in df.iterrows()})
+
     watershed_files = natsort.natsorted([f for f in w_path.glob("*.tif")])
 
     with multiprocessing.Pool(processes=nprocs) as pool:
