@@ -140,7 +140,7 @@ def apply_watershed(i, infile, args, outpath) -> dict:
     peaks_map[0] = np.array([0, 0, 0])
 
     logging.info(f"found {len(peaks_map)} peaks")
-    # logging.info(peaks_map)
+    logging.info(np.array(peaks_map.values()))
 
     # generate watershed seeds
     img = np.zeros(volume.shape)
