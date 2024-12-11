@@ -137,10 +137,10 @@ def apply_watershed(i, infile, args, outpath) -> dict:
     # find local peaks
     w_peaks = peak_local_max(dog, min_distance=args.min_distance, threshold_abs=args.seed_threshold)
     peaks_map = {i + 1: p for i, p in enumerate(w_peaks)}
-    peaks_map[0] = (0, 0, 0)
+    peaks_map[0] = np.array([0, 0, 0])
 
     logging.info(f"found {len(peaks_map)} peaks")
-    logging.info(peaks_map)
+    # logging.info(peaks_map)
 
     # generate watershed seeds
     img = np.zeros(volume.shape)
