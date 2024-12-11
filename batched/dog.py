@@ -92,7 +92,7 @@ def process_file(i, infile, args, tmpdir):
 
     frame = [i] * pts.shape[0]
 
-    pd.DataFrame({"x": pts[:, 0], "y": pts[:, 1], "z": pts[:, 2], "val": vals, "frame": frame}).to_csv(tmpdir / f"file_{i}.csv")
+    pd.DataFrame({"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals, "frame": frame}).to_csv(tmpdir / f"file_{i}.csv")
 
 
 if __name__ == "__main__":
