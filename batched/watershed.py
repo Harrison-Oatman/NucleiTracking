@@ -30,28 +30,25 @@ def main():
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else inpath.parent / "watershed"
     w_path = outpath / "watershed"
-    point_path = outpath / "points"
+    nprocs = args.nprocs
 
     if not outpath.exists():
         outpath.mkdir()
+
     if not w_path.exists():
         w_path.mkdir()
-    if not point_path.exists():
-        point_path.mkdir()
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
-    print(f"found {len(files)} tif files")
+        files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+        print(f"found {len(files)} tif files")
 
-    nprocs = args.nprocs
+        with multiprocessing.Pool(processes=nprocs) as pool:
 
-    with multiprocessing.Pool(processes=nprocs) as pool:
+            jobs = []
+            for i, file in tqdm(enumerate(files)):
+                job = pool.apply_async(apply_watershed, (i, str(file.absolute()), args, w_path))
+                jobs.append(job)
 
-        jobs = []
-        for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(apply_watershed, (i, str(file.absolute()), args, w_path))
-            jobs.append(job)
-
-        peak_maps = [job.get() for job in jobs]
+            peak_maps = [job.get() for job in jobs]
 
     watershed_files = natsort.natsorted([f for f in w_path.glob("*.tif")])
 
@@ -61,7 +58,7 @@ def main():
             this_pm = peak_maps[i].copy()
             next_pm = peak_maps[i+1].copy()
 
-            job = pool.apply_async(process_points, (i, file, next_pm, this_pm, args, point_path))
+            job = pool.apply_async(process_points, (i, file, next_pm, this_pm, args))
             jobs.append(job)
 
         dfs = [job.get() for job in jobs]
@@ -91,7 +88,7 @@ def process_cli() -> argparse.Namespace:
     return argparser.parse_args()
 
 
-def process_points(i, w_file, next_pts, this_pts, args, outpath):
+def process_points(i, w_file, next_pts, this_pts, args):
     w = tifffile.imread(w_file)
     X = np.array(next_pts.values())
 
