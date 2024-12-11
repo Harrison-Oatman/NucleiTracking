@@ -97,7 +97,7 @@ def process_cli() -> argparse.Namespace:
 
 def process_points(i, w_file, next_pts, this_pts, args):
     w = tifffile.imread(w_file)
-    X = np.array(next_pts.values())
+    X = np.array(list(next_pts.values()))
 
     next_labels = [int(w[tuple(p.astype(int))]) for p in X]
     next_pos = [this_pts[l] for l in next_labels]
