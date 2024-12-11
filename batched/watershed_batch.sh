@@ -11,4 +11,4 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/dog.py -i "/mnt/home/hoatman/ceph/lightsheet_20241104/raw_image/downscaled/recon2/" --nprocs 32 --min_distance 2 --seed_threshold 20 --sigma_low 2 --sigma_high 6 --level INFO
+python NucleiTracking/batched/watershed.py -i "/mnt/home/hoatman/ceph/lightsheet_20241104/raw_image/downscaled/recon2/" --nprocs 32 --min_distance 2 --seed_threshold 20 --sigma_low 2 --sigma_high 6 --level INFO
