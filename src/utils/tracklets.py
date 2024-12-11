@@ -157,8 +157,11 @@ def detect_positional_outliers(spots):
     Detects outliers according to x and y positions
     Uses DBSCAN and keeps only the largest cluster
     """
-    x = spots[["POSITION_X", "POSITION_Y"]].values
-    dbscan = DBSCAN(eps=40, min_samples=1)
+    if "POSITION_Z" in spots.columns:
+        x = spots[["POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+    else:
+        x = spots[["POSITION_X", "POSITION_Y"]].values
+    dbscan = DBSCAN(eps=3, min_samples=1)
     return dbscan.fit_predict(x)
 
 
