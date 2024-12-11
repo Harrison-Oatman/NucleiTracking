@@ -140,7 +140,8 @@ def apply_watershed(i, infile, args, outpath) -> dict:
     peaks_map[0] = np.array([0, 0, 0])
 
     logging.info(f"found {len(peaks_map)} peaks")
-    logging.info(np.array(peaks_map.values()).shape)
+    values = np.array(list(peaks_map.values()))
+    logging.info(values.shape)
 
     # generate watershed seeds
     img = np.zeros(volume.shape)
@@ -154,7 +155,7 @@ def apply_watershed(i, infile, args, outpath) -> dict:
 
     tifffile.imwrite(outpath / f"{i:03d}.tif", w)
 
-    df = pd.DataFrame(np.array(peaks_map.values()), columns=["z", "y", "x"], index=list(peaks_map.keys()))
+    df = pd.DataFrame(values, columns=["z", "y", "x"], index=list(peaks_map.keys()))
     df.to_csv(outpath / f"{i:03d}_peaks.csv")
 
     return peaks_map
