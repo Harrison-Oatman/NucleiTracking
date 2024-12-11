@@ -139,6 +139,9 @@ def apply_watershed(i, infile, args, outpath) -> dict:
     peaks_map = {i + 1: p for i, p in enumerate(w_peaks)}
     peaks_map[0] = (0, 0, 0)
 
+    logging.info(f"found {len(peaks_map)} peaks")
+    logging.info(peaks_map)
+
     # generate watershed seeds
     img = np.zeros(volume.shape)
     img[w_peaks[:, 0], w_peaks[:, 1], w_peaks[:, 2]] = np.arange(1, len(w_peaks) + 1)
