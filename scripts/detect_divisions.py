@@ -34,9 +34,19 @@ def make_lineage_tif(spots_df: pd.DataFrame, h=1360, w=1360) -> np.ndarray:
 
 
 def process_graph(spots_df: pd.DataFrame, graph: nx.DiGraph) -> pd.DataFrame:
+    """
+    Assigns track_id, tracklet_id, parent_id, and daughter_id to spots_df based on graph structure
+
+    taken as a postprocessing step after division detection
+    """
+
+    # assign track index as entire connected lineage of a tracked nucleus
     new_track_idx = {idx: 0 for idx in spots_df["ID"]}
 
-    for track, c in enumerate(nx.connected_components(graph.to_undirected())):
+    cc = nx.connected_components(graph.to_undirected())
+    cc = [c for c in sorted(cc, key=len, reverse=True)]
+
+    for track, c in enumerate(cc, start=1):
         for spot in c:
             new_track_idx[spot] = track
 
@@ -44,6 +54,7 @@ def process_graph(spots_df: pd.DataFrame, graph: nx.DiGraph) -> pd.DataFrame:
 
     graph = graph.to_directed()
 
+    # breaks the graph into tracklets, by removing edges after divisions
     parents = [node for node in graph.nodes if graph.out_degree(node) == 2]
     graph_copy = graph.copy()
     for parent in parents:
@@ -51,6 +62,7 @@ def process_graph(spots_df: pd.DataFrame, graph: nx.DiGraph) -> pd.DataFrame:
         for child in children:
             graph_copy.remove_edge(parent, child)
 
+    # assigns tracklet index based on new graph
     new_tracklet_idx = {idx: 0 for idx in spots_df["ID"]}
     tracklet = 0
 
