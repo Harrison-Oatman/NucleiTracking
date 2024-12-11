@@ -104,9 +104,9 @@ def process_points(i, w_file, next_pts, this_pts, args):
 
     df = {
         "ID": [f"{i+1:03d}:{k:05d}" for k in next_pts.keys()],
-        "z": [p[0] for p in next_pts],
-        "y": [p[1] for p in next_pts],
-        "x": [p[2] for p in next_pts],
+        "z": [p[0] for p in next_pts.values()],
+        "y": [p[1] for p in next_pts.values()],
+        "x": [p[2] for p in next_pts.values()],
         "parent": [f"{i:03d}:{l:05d}" for l in next_labels],
         "parent_z": [p[0] for p in next_pos],
         "parent_y": [p[1] for p in next_pos],
