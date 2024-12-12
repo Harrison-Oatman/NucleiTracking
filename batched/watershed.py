@@ -18,7 +18,7 @@ import pandas as pd
 class Peak:
 
     def __init__(self, label, loc, val):
-        self.label = label
+        self.label = int(label)
         self.loc = loc
         self.val = val
         self.z = loc[0]
@@ -159,7 +159,7 @@ def apply_watershed(i, infile, args, outpath) -> dict:
     # find local peaks
     w_peaks = peak_local_max(dog, min_distance=args.min_distance, threshold_abs=args.seed_threshold)
     intensities = dog[w_peaks[:, 0], w_peaks[:, 1], w_peaks[:, 2]]
-    peaks_map = {i + 1: Peak(i, p, v) for i, (p, v) in enumerate(zip(w_peaks, intensities))}
+    peaks_map = {i: Peak(i, p, v) for i, (p, v) in enumerate(zip(w_peaks, intensities))}
     peaks_map[0] = Peak(0, np.array([0, 0, 0]), 0)
 
     logging.info(f"found {len(peaks_map)} peaks")
