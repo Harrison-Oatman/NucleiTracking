@@ -28,7 +28,7 @@ class Peak:
 
 def read_peak_csv(file):
     df = pd.read_csv(file)
-    return {row["Unnamed: 0"]: Peak(row["Unnamed: 0"], np.array([row["z"], row["y"], row["x"]]), row["val"]) for i, row in df.iterrows()}
+    return {int(row["Unnamed: 0"]): Peak(row["Unnamed: 0"], np.array([row["z"], row["y"], row["x"]]), row["val"]) for i, row in df.iterrows()}
 
 
 def main():
