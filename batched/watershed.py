@@ -14,6 +14,23 @@ from scipy.ndimage import distance_transform_edt
 import pandas as pd
 
 
+
+class Peak:
+
+    def __init__(self, label, loc, val):
+        self.label = label
+        self.loc = loc
+        self.val = val
+        self.z = loc[0]
+        self.y = loc[1]
+        self.x = loc[2]
+
+
+def read_peak_csv(file):
+    df = pd.read_csv(file)
+    return {row["Unnamed: 0"]: Peak(row["Unnamed: 0"], np.array([row["z"], row["y"], row["x"]]), row["val"]) for i, row in df.iterrows()}
+
+
 def main():
     args = process_cli()
 
@@ -54,8 +71,7 @@ def main():
         peak_maps = []
         for file in natsort.natsorted(w_path.glob("*_peaks.csv")):
 
-            df = pd.read_csv(file)
-            peak_maps.append({row["Unnamed: 0"]: np.array([row["z"], row["y"], row["x"]]) for i, row in df.iterrows()})
+            peak_maps.append(read_peak_csv(file))
 
     watershed_files = natsort.natsorted([f for f in w_path.glob("*.tif")])
 
@@ -97,20 +113,21 @@ def process_cli() -> argparse.Namespace:
 
 def process_points(i, w_file, next_pts, this_pts, args):
     w = tifffile.imread(w_file)
-    X = np.array(list(next_pts.values()))
+    X = np.array([p.loc for p in next_pts.values()])
 
     next_labels = [int(w[tuple(p.astype(int))]) for p in X]
     next_pos = [this_pts[l] for l in next_labels]
 
     df = {
         "ID": [f"{i+1:03d}:{k:05d}" for k in next_pts.keys()],
-        "z": [p[0] for p in next_pts.values()],
-        "y": [p[1] for p in next_pts.values()],
-        "x": [p[2] for p in next_pts.values()],
+        "z": [p.z for p in next_pts.values()],
+        "y": [p.y for p in next_pts.values()],
+        "x": [p.x for p in next_pts.values()],
+        "val": [p.val for p in next_pts.values()],
         "parent": [f"{i:03d}:{l:05d}" for l in next_labels],
-        "parent_z": [p[0] for p in next_pos],
-        "parent_y": [p[1] for p in next_pos],
-        "parent_x": [p[2] for p in next_pos],
+        "parent_z": [p.z for p in next_pos],
+        "parent_y": [p.y for p in next_pos],
+        "parent_x": [p.x for p in next_pos],
     }
 
     df = pd.DataFrame(df)
@@ -118,9 +135,10 @@ def process_points(i, w_file, next_pts, this_pts, args):
     if i == 0:
         df0 = {
             "ID": [f"{i:03d}:{k:05d}" for k in this_pts.keys()],
-            "z": [p[0] for p in this_pts.values()],
-            "y": [p[1] for p in this_pts.values()],
-            "x": [p[2] for p in this_pts.values()],
+            "z": [p.z for p in this_pts.values()],
+            "y": [p.y for p in this_pts.values()],
+            "x": [p.x for p in this_pts.values()],
+            "val": [p.val for p in this_pts.values()],
             "parent": [f"{i:03d}:{0:05d}" for l in this_pts.keys()],
             "parent_z": [0 for p in this_pts],
             "parent_y": [0 for p in this_pts],
@@ -140,16 +158,18 @@ def apply_watershed(i, infile, args, outpath) -> dict:
 
     # find local peaks
     w_peaks = peak_local_max(dog, min_distance=args.min_distance, threshold_abs=args.seed_threshold)
-    peaks_map = {i + 1: p for i, p in enumerate(w_peaks)}
-    peaks_map[0] = np.array([0, 0, 0])
+    intensities = dog[w_peaks[:, 0], w_peaks[:, 1], w_peaks[:, 2]]
+    peaks_map = {i + 1: Peak(i, p, v) for i, (p, v) in enumerate(zip(w_peaks, intensities))}
+    peaks_map[0] = Peak(0, np.array([0, 0, 0]), 0)
 
     logging.info(f"found {len(peaks_map)} peaks")
-    values = np.array(list(peaks_map.values()))
-    logging.info(values.shape)
 
     # generate watershed seeds
     img = np.zeros(volume.shape)
-    img[w_peaks[:, 0], w_peaks[:, 1], w_peaks[:, 2]] = np.arange(1, len(w_peaks) + 1)
+    p_locs = np.array([p.loc for p in peaks_map.values()])
+    p_labs = np.array([p.label for p in peaks_map.values()])
+    p_vals = np.array([p.val for p in peaks_map.values()])
+    img[p_locs[:, 0], p_locs[:, 1], p_locs[:, 2]] = p_labs
 
     # used to mask out the background
     dist = distance_transform_edt(img == 0)
@@ -159,7 +179,7 @@ def apply_watershed(i, infile, args, outpath) -> dict:
 
     tifffile.imwrite(outpath / f"{i:03d}.tif", w)
 
-    df = pd.DataFrame(values, columns=["z", "y", "x"], index=list(peaks_map.keys()))
+    df = pd.DataFrame({"z": p_locs[:, 0], "y": p_locs[:, 1], "x": p_locs[:, 2], "val": p_vals}, index=p_labs)
     df.to_csv(outpath / f"{i:03d}_peaks.csv")
 
     return peaks_map
