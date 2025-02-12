@@ -22,7 +22,7 @@ python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confo
 
 python scripts/cellpose_run.py -id "D:\Tracking\Chetan\446_locs" -o "D:\Tracking\Chetan\cyto3_60_out" --model cyto3 --diam 60 --use_gpu --axes tcyx -t 99.0 --channels 4 0
 python scripts/cellpose_run.py -id "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test\60\30_42" -o "D:\Tracking\NucleiTracking\data\interim\lightsheet\patch_test_out\60" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
-python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\raw\Recon_fused_tp_60_ch_0_normalized_bgs.tif" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.0 --do_3d
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_01_31\recon\recon_fused_tp_198_ch_0.tif" --model cyto3 --diam 15 --use_gpu --axes zyx -t 99.8 --do_3d
 
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\external\bothma2014\nuclei.tif" --model cyto3 --diam 15 --use_gpu --axes tyx -t 99.0
 
