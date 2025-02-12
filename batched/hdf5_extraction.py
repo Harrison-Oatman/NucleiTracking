@@ -9,8 +9,6 @@ import json
 import numpy as np
 import h5py
 import tifffile
-import io
-import shutil
 
 
 def reconstruct(filename, output_dirname, sd, ch, t):
