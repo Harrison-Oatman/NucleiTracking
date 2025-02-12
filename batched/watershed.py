@@ -69,7 +69,7 @@ def main():
 
     else:
         peak_maps = []
-        for file in natsort.natsorted(w_path.glob("*_peaks.csv")):
+        for file in tqdm(natsort.natsorted(w_path.glob("*_peaks.csv"))):
 
             peak_maps.append(read_peak_csv(file))
 
