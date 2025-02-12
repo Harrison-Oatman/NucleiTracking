@@ -7,7 +7,6 @@
 #SBATCH --partition=gpu                      # Partition name
 #SBATCH --gpus=4                             # Number of GPUs
 #SBATCH --cpus-per-task=8                    # Number of CPU cores per task
-#SBATCH --x11                                 # Enable X11 forwarding
 
 echo "starting task"
 
