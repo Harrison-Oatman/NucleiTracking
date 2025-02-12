@@ -9,7 +9,6 @@ import time
 import multiprocessing
 from pathlib import Path
 import natsort
-import tracemalloc
 
 """
 --Tasks--
