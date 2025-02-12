@@ -18,6 +18,11 @@ import natsort
 
 
 def main():
+    try:
+        multiprocessing.set_start_method('spawn')
+    except RuntimeError:
+        pass
+
     print("starting main")
     args = process_cli()
 
