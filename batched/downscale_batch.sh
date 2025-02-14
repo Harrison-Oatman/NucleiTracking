@@ -7,7 +7,7 @@
 #SBATCH --partition=genx               # Partition name
 #SBATCH --cpus-per-task=32              # Number of CPU cores per task
 
-source ~/miniconda3/etc/profile.d/conda.sh
+source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs

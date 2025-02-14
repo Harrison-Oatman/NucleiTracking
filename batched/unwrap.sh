@@ -7,7 +7,7 @@
 #SBATCH --partition=genx               # Partition name
 #SBATCH --cpus-per-task=1             # Number of CPU cores per task
 
-source ~/miniconda3/etc/profile.d/conda.sh
+source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
 
 echo "Running unwrap script"
