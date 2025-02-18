@@ -97,7 +97,7 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
 
     dfs = []
 
-    for dname, (sighi, siglo) in dogs.items():
+    for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
 
