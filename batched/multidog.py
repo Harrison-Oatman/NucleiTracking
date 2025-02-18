@@ -9,6 +9,7 @@ from pathlib import Path
 import natsort
 from skimage.filters import difference_of_gaussians, gaussian
 from skimage.feature import peak_local_max
+from scipy.ndimage import maximum_filter
 import pandas as pd
 from tomllib import load
 
@@ -101,7 +102,7 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
-        v_local = 50 * v / gaussian(v, sigma=5)
+        v_local = 100 * v / maximum_filter(v, size=12)
         logging.info(f"v: {v.max()}")
 
         for mname, mind in min_distances.items():
