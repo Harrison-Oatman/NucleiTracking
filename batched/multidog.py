@@ -26,8 +26,14 @@ def main():
     assert inpath.exists(), f"directory not found: {inpath}"
     print(f"processing files in {inpath}")
 
-    experiment_toml = Path(args.toml)
-    if not experiment_toml.exists():
+    toml_found = False
+
+    if args.toml is not None:
+        experiment_toml = Path(args.toml)
+        if experiment_toml.exists():
+            toml_found = True
+
+    if not toml_found:
         experiment_toml = Path(__file__).parent / "dog_sweep.toml"
         print(f"using default toml: {experiment_toml}")
 
