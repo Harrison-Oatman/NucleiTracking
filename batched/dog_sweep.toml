@@ -1,0 +1,9 @@
+[dog]
+large = [4, 10]
+medium = [3, 8]
+small = [2, 7]
+
+[min-distance]
+2 = 2
+3 = 3
+4 = 4
