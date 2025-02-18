@@ -100,6 +100,7 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
+        v = 100 * v / np.expand_dims(np.max(v, axis=(0, 2)), axis=(0, 2))
 
         for mname, mind in min_distances.items():
             logging.info(f"mind: {mind}, {type(mind)}")
