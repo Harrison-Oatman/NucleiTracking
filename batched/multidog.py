@@ -7,7 +7,7 @@ import time
 import multiprocessing
 from pathlib import Path
 import natsort
-from skimage.filters import difference_of_gaussians
+from skimage.filters import difference_of_gaussians, gaussian
 from skimage.feature import peak_local_max
 import pandas as pd
 from tomllib import load
@@ -101,7 +101,7 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
-        v = 100 * v / np.expand_dims(np.max(v, axis=(0, 2)), axis=(0, 2))
+        v_local = 50 * v / gaussian(v, sigma=5)
         logging.info(f"v: {v.max()}")
 
         for mname, mind in min_distances.items():
@@ -110,8 +110,9 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
 
             pts = peak_local_max(v, min_distance=mind, threshold_abs=args.threshold_abs)
             vals = v[pts[:, 0], pts[:, 1], pts[:, 2]]
+            local_vals = v_local[pts[:, 0], pts[:, 1], pts[:, 2]]
 
-            df = pd.DataFrame({"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals})
+            df = pd.DataFrame({"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals, "local": local_vals})
             df["frame"] = i
             df["dog"] = dname
             df["min-distance"] = mname
