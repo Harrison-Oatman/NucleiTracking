@@ -102,7 +102,7 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
-        v_local = 100 * v / maximum_filter(v, size=12)
+        v_local = 100 * v / maximum_filter(v, size=19)
         logging.info(f"v: {v.max()}")
 
         for mname, mind in min_distances.items():
