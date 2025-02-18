@@ -65,7 +65,7 @@ def main():
 
 def process_toml(fp):
     with open(fp, "rb") as f:
-        tt = load(fp)
+        tt = load(f)
 
     dog = tt["dog"]
     min_distance = tt["min-distance"]
