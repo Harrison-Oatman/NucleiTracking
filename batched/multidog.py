@@ -93,6 +93,7 @@ def process_cli() -> argparse.Namespace:
 
 
 def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
+    logging.info(f"processing file {i}: {infile}")
     volume = tifffile.imread(infile)
 
     dfs = []
@@ -101,10 +102,11 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
 
         v = difference_of_gaussians(volume, siglo, sighi)
         v = 100 * v / np.expand_dims(np.max(v, axis=(0, 2)), axis=(0, 2))
+        logging.info(f"v: {v.max()}")
 
         for mname, mind in min_distances.items():
-            logging.info(f"mind: {mind}, {type(mind)}")
-            logging.info(f"v: {v.shape}")
+            # logging.info(f"mind: {mind}, {type(mind)}")
+            # logging.info(f"v: {v.shape}")
 
             pts = peak_local_max(v, min_distance=mind, threshold_abs=args.threshold_abs)
             vals = v[pts[:, 0], pts[:, 1], pts[:, 2]]
