@@ -52,9 +52,27 @@ def main():
     peaks, stems = load_peaks(peak_directory)
     jc = JsonController(json_fp)
 
+    dfs = []
+
     for i, s in enumerate(stems):
-        print(i, s)
-        print(jc.get(s, stems))
+        preset = jc.get(s, stems)
+        data = peaks[i]
+
+        dog_preset = preset["dog"]
+        min_distance_preset = preset["min-distance"]
+        value = preset["value"]
+        local_value = preset["local"]
+
+        data = data[data["dog"] == dog_preset]
+        data = data[data["min-distance"].astype(str) == min_distance_preset]
+        data = data[data['val'] > value]
+        data = data[data['local'] > local_value]
+
+        dfs.append(data)
+
+    df = pd.concat(dfs)
+    df.to_csv("output.csv")
+    
 
 if __name__ == "__main__":
     main()
