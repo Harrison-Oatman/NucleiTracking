@@ -131,6 +131,8 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
                 subpx = (rowvals[:, 2] - rowvals[:, 0]) / (2 * (rowvals[:, 0] + rowvals[:, 2] - 2 * rowvals[:, 1]))
                 sublocs.append(subpx)
 
+            sublocs = np.stack(sublocs, -1)
+
             subloc_pts = pts + sublocs
 
             pts = pts*r
