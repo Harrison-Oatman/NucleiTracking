@@ -140,7 +140,7 @@ def load_tiffs_and_peaks(directory, peak_directory):
     tiff_files = natsorted([f for f in os.listdir(directory) if f.endswith('.tiff') or f.endswith('.tif')])
     csv_files = natsorted([f for f in os.listdir(peak_directory) if f.endswith('.csv')])
 
-    images = [tiff.imread(os.path.join(directory, f)) for f in tqdm(tiff_files)]
+    images = [tiff.imread(os.path.join(directory, f)) for i, f in tqdm(enumerate(tiff_files)) if i % 5 == 0]
     images = [np.swapaxes(image, 0, 2) for image in images]
     peak_data = [pd.read_csv(os.path.join(peak_directory, f)) for f in csv_files]
 
