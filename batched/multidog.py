@@ -12,6 +12,7 @@ from skimage.feature import peak_local_max
 from scipy.ndimage import maximum_filter
 import pandas as pd
 from tomllib import load
+import skimage
 
 
 def main():
@@ -83,6 +84,7 @@ def process_cli() -> argparse.Namespace:
 
     argparser.add_argument("--threshold_abs", default=25.0, type=float)
     argparser.add_argument("--threshold_rel", default=0.0)
+    argparser.add_argument("--rescale_factor", default=2, type=int)
 
     argparser.add_argument_group("multiprocessing")
     argparser.add_argument("--nprocs", default=1, type=int)
@@ -96,6 +98,10 @@ def process_cli() -> argparse.Namespace:
 def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     logging.info(f"processing file {i}: {infile}")
     volume = tifffile.imread(infile)
+
+    r = args.rescale_factor
+
+    volume = skimage.transform.downscale_local_mean(volume, (r, r, r))
 
     dfs = []
 
@@ -113,7 +119,26 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
             vals = v[pts[:, 0], pts[:, 1], pts[:, 2]]
             local_vals = v_local[pts[:, 0], pts[:, 1], pts[:, 2]]
 
-            df = pd.DataFrame({"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals, "local": local_vals})
+            sublocs = []
+            for axis in [0, 1, 2]:
+                xoff = np.arange(-1, 2)
+                maskarr = np.array([0, 0, 0])
+                maskarr[axis] = 1
+                xrow = pts[:, np.newaxis, :] + xoff[np.newaxis, :, np.newaxis] * np.broadcast_arrays(maskarr, pts)[0][:,
+                                                                                 np.newaxis, :]
+                xrow = np.moveaxis(xrow, -1, 0)
+                rowvals = v[*xrow]
+                subpx = (rowvals[:, 2] - rowvals[:, 0]) / (2 * (rowvals[:, 0] + rowvals[:, 2] - 2 * rowvals[:, 1]))
+                sublocs.append(subpx)
+
+            subloc_pts = pts + sublocs
+
+            pts = pts*r
+            subloc_pts = subloc_pts*r
+
+            df = pd.DataFrame({"z": subloc_pts[:, 0], "y": subloc_pts[:, 1], "x": subloc_pts[:, 2],
+                               "zd": pts[:, 0], "yd": pts[:, 1], "xd": pts[:, 2], "val": vals,
+                               "local": local_vals})
             df["frame"] = i
             df["dog"] = dname
             df["min-distance"] = mname
