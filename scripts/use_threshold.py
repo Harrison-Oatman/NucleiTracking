@@ -59,9 +59,9 @@ def main():
         data = peaks[i]
 
         dog_preset = preset["dog"]
-        min_distance_preset = preset["min-distance"]
+        min_distance_preset = preset["mind"]
         value = preset["value"]
-        local_value = preset["local"]
+        local_value = preset["local_value"]
 
         data = data[data["dog"] == dog_preset]
         data = data[data["min-distance"].astype(str) == min_distance_preset]
@@ -72,7 +72,7 @@ def main():
 
     df = pd.concat(dfs)
     df.to_csv("output.csv")
-    
+
 
 if __name__ == "__main__":
     main()
