@@ -84,7 +84,7 @@ def process_cli() -> argparse.Namespace:
 
     argparser.add_argument("--threshold_abs", default=1, type=float)
     argparser.add_argument("--threshold_rel", default=0.0)
-    argparser.add_argument("--rescale_factor", default=2, type=int)
+    argparser.add_argument("--rescale_factor", default=1, type=int)
 
     argparser.add_argument_group("multiprocessing")
     argparser.add_argument("--nprocs", default=1, type=int)
