@@ -82,7 +82,7 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
     argparser.add_argument("-t", "--toml", help="path to sweep toml", default=None)
 
-    argparser.add_argument("--threshold_abs", default=5, type=float)
+    argparser.add_argument("--threshold_abs", default=1, type=float)
     argparser.add_argument("--threshold_rel", default=0.0)
     argparser.add_argument("--rescale_factor", default=2, type=int)
 
@@ -108,8 +108,8 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     for dname, (siglo, sighi) in dogs.items():
 
         v = difference_of_gaussians(volume, siglo, sighi)
-        v_local = 100 * v / maximum_filter(v, size=11)
-        logging.info(f"v: {v.max()}")
+        v_local = 100 * v / (maximum_filter(v, size=11) + 0.0001)
+        # logging.info(f"v: {v.max()}")
 
         for mname, mind in min_distances.items():
             # logging.info(f"mind: {mind}, {type(mind)}")
