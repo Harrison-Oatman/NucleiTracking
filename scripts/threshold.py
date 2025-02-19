@@ -43,7 +43,7 @@ class JsonStoreValue:
 
 
 class ThresholdSlider(QWidget):
-    def __init__(self, update_callback, store_value_callback, dogs, mins, min_val=25, max_val=250):
+    def __init__(self, update_callback, store_value_callback, dogs, mins, min_val=0, max_val=150):
         super().__init__()
         self.update_callback = update_callback
         self.store_value_callback = store_value_callback
