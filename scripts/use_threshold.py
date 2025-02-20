@@ -3,11 +3,12 @@ import os
 import pandas as pd
 import json
 from pathlib import Path
+from tqdm import tqdm
 
 
 def load_peaks(directory):
     csv_files = natsorted([f for f in os.listdir(directory) if f.endswith('.csv')])
-    peak_data = [pd.read_csv(os.path.join(directory, f)) for f in csv_files]
+    peak_data = [pd.read_csv(os.path.join(directory, f)) for f in tqdm(csv_files, "loading csv")]
     stems = [Path(f).stem for f in csv_files]
 
     return peak_data, stems
@@ -54,7 +55,7 @@ def main():
 
     dfs = []
 
-    for i, s in enumerate(stems):
+    for i, s in tqdm(enumerate(stems), "saving csvs"):
         preset = jc.get(s, stems)
         data = peaks[i]
 
