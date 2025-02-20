@@ -237,6 +237,7 @@ class GuiProcess:
 
         filtered_peaks = data[['x', 'y', 'z']].values
         self.scatter_layer.data = filtered_peaks
+        self.scatter_layer.name = f"{len(data)} peaks"
 
     # def recompute_peaks(self, sigma_high, sigma_low, min_distance):
     #     img = self.image_data[self.current_frame]
