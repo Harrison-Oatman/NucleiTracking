@@ -196,6 +196,7 @@ class GuiProcess:
     def update_frame(self):
         """Manually update frame display"""
         self.image_layer.data = self.image_data[self.current_frame]
+        self.image_layer.name = self.stems[self.current_frame]
 
         if self.get_preset_callback(self.stems[self.current_frame]) is not None:
             preset = self.get_preset_callback(self.stems[self.current_frame])
