@@ -77,6 +77,7 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
     argparser.add_argument("--stitch_threshold", default=0.0, type=float)
     argparser.add_argument("--batch_size", default=8, type=int)
+    argparser.add_argument("--flow3D_smooth", default=0, type=float)
 
     argparser.add_argument_group("multiprocessing")
     argparser.add_argument("--nprocs", default=1, type=int)
@@ -147,6 +148,7 @@ def process_file(iter, infile, args, outpath):
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
+                         flow3D_smooth=args.flow3d_smooth,
                          do_3D=args.do_3d,
                          stitch_threshold=args.stitch_threshold,
                          normalize={"percentile": [1, args.top_percentile]})
