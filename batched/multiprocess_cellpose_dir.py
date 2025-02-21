@@ -148,7 +148,7 @@ def process_file(iter, infile, args, outpath):
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
-                         flow3D_smooth=args.flow3d_smooth,
+                         flow3D_smooth=args.flow3D_smooth,
                          do_3D=args.do_3d,
                          stitch_threshold=args.stitch_threshold,
                          normalize={"percentile": [1, args.top_percentile]})
