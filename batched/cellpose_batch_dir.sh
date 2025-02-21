@@ -6,7 +6,7 @@
 #SBATCH --mem=750G                            # Memory limit
 #SBATCH --partition=gpu                      # Partition name
 #SBATCH --gpus=4                             # Number of GPUs
-#SBATCH --cpus-per-task=8s                    # Number of CPU cores per task
+#SBATCH --cpus-per-task=8                    # Number of CPU cores per task
 
 echo "starting task"
 
