@@ -118,6 +118,8 @@ def handle_axes(raw, args):
 
 
 def process_file(iter, infile, args, outpath):
+    logging.basicConfig(level=args.level)
+
     infile = Path(infile)
     outpath = Path(outpath)
     outfile = outpath / f"{infile.stem}_masks.tif"
