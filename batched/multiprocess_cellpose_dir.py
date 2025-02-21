@@ -144,6 +144,7 @@ def process_file(iter, infile, args, outpath):
     results = model.eval([image for image in raw],
                          channels=[0, 0],
                          channel_axis=-3,
+                         z_axis=-2,
                          batch_size=args.batch_size,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
@@ -152,6 +153,8 @@ def process_file(iter, infile, args, outpath):
                          do_3D=args.do_3d,
                          stitch_threshold=args.stitch_threshold,
                          normalize={"percentile": [1, args.top_percentile]})
+
+    logging.info(results)
 
 
     masks = np.array(results[0])
