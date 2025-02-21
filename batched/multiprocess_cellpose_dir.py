@@ -124,6 +124,8 @@ def process_file(iter, infile, args, outpath):
     outpath = Path(outpath)
     outfile = outpath / f"{infile.stem}_masks.tif"
 
+    logging.info(f"outile: {outfile}")
+
     if outfile.exists():
         logging.info(f"skipping {outfile}, already exists.")
         return
@@ -145,8 +147,8 @@ def process_file(iter, infile, args, outpath):
 
     results = model.eval([image for image in raw],
                          channels=[0, 0],
-                         channel_axis=-3,
-                         z_axis=-2,
+                         channel_axis=3,
+                         z_axis=2,
                          batch_size=args.batch_size,
                          diameter=args.diam,
                          cellprob_threshold=args.cellprob_thresh,
@@ -156,6 +158,7 @@ def process_file(iter, infile, args, outpath):
                          stitch_threshold=args.stitch_threshold,
                          normalize={"percentile": [1, args.top_percentile]})
 
+    logging.info(f"completed {infile.stem}")
     logging.info(results)
 
 
