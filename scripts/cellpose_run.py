@@ -102,7 +102,7 @@ def cellpose_process_file(infile, outpath, args):
     raw, axes = handle_axes(raw, args)
 
     # normalize to percentile
-    raw = raw / np.quantile(raw, args.top_percentile / 100.0)
+    # raw = raw / np.quantile(raw, args.top_percentile / 100.0)
     raw = np.clip(raw, 0, 1)
 
     if args.channels is None:
@@ -118,7 +118,7 @@ def cellpose_process_file(infile, outpath, args):
                          cellprob_threshold=args.cellprob_thresh,
                          flow_threshold=args.flow_thresh,
                          do_3D=args.do_3d,
-                         normalize={"percentile": [1, 100]})
+                         normalize={"percentile": [1, args.top_percentile]})
 
     out = np.array(results[0])
     tifffile.imwrite(outtif, out)
