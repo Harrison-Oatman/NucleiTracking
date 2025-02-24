@@ -27,6 +27,7 @@ def get_sister_distances2(spots_df, tracklets, div_start, div_end):
     """
     division_spots = spots_df[(spots_df["FRAME"] >= div_start)]
     division_tracklets = tracklets[(tracklets["start_time"] < div_end) & (tracklets["end_time"] > div_end)]
+    print(division_tracklets)
 
     # subset the full length tracklets and the shorter length tracklets
     division_fl = division_tracklets[division_tracklets["start_time"] < div_start]
@@ -115,6 +116,7 @@ def map_divisions(spots_df, graph, interphase_dividers, savepath=None) -> nx.DiG
         fig2, axes2 = plt.subplots(2, 2, figsize=(10, 10))
 
     tracklets = quick_tracklets(spots_df)
+    print(tracklets["start_time"].describe())
 
     for division in range(len(interphase_dividers) - 1):
         div_start, div_end = interphase_dividers[division], interphase_dividers[division + 1]
