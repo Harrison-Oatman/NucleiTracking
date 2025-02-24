@@ -10,7 +10,7 @@ python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\light
 python batched/multiprocess_cellpose.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif" --model 3d08 --diam 10 --do_3d --use_gpu --axes tzyx
 python batched/process_data.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet" -o "D:\Tracking\NucleiTracking\data\interim\confocal\lightsheet2" --nprocs 1
 
-python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo008\embryo008_MaxIP_bgs.tif" -o "D:\Tracking\NucleiTracking\data\interim\cellpose_out" --model crop007 --diam 15 -f 1.0 -c 0.0
+python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_02_06\recon\box_project\all_vals_0.tif" --use_gpu --model crop007 --diam 11 -f 1.0 -c 0.0 --axes tyx
 python scripts/detect_divisions.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\embryo007\embryo007_linear.xml"
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\interim\confocal\tll_embryo002\tll_embryo002a_rot_bgs_Probabilities.tiff #1.tif"  --model nuclei --diam 18 -f 1.0 -c 0.0
 python scripts/cellpose_run.py -i "D:\Tracking\NucleiTracking\data\Brandon\ts2.tif"  --model cyto3 --diam 40 -c 0.0
