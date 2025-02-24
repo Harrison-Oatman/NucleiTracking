@@ -33,6 +33,10 @@ def main():
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else inpath.parent / f"box_project"
     outpath.mkdir(exist_ok=True)
+    (outpath / "vals").mkdir(exist_ok=True)
+    (outpath / "locs").mkdir(exist_ok=True)
+    (outpath / "all_vals").mkdir(exist_ok=True)
+    (outpath / "all_locs").mkdir(exist_ok=True)
 
     files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
@@ -58,8 +62,8 @@ def main():
         v_i = np.stack([v[i] for v in vals], 0)
         l_i = np.stack([l[i] for l in locs], 0)
 
-        tifffile.imwrite(outpath / f"all_vals_{i}.tif", v_i)
-        tifffile.imwrite(outpath / f"all_locs_{i}.tif", np.array(l_i, dtype=int))
+        tifffile.imwrite(outpath / "all_vals" / f"all_vals_{i}.tif", v_i)
+        tifffile.imwrite(outpath / "all_locs" / f"all_locs_{i}.tif", np.array(l_i, dtype=int))
 
 
 def process_cli() -> argparse.Namespace:
@@ -118,8 +122,8 @@ def process_file(j, infile, args, outpath):
     vs.append(np.max(raw[:, :, args.x_hi:], axis=2))
 
     for i, (v, l) in enumerate(zip(vs, ls)):
-        val_outfile = outpath / f"{infile.stem}_box_project_{i}.tif"
-        loc_outfile = outpath / f"{infile.stem}_box_project_{i}_locs.tif"
+        val_outfile = outpath / "vals" / f"{infile.stem}_box_project_{i}.tif"
+        loc_outfile = outpath / "locs" / f"{infile.stem}_box_project_{i}_locs.tif"
 
         # save the results
         tifffile.imwrite(val_outfile, v)
