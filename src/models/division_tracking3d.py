@@ -6,15 +6,19 @@ import seaborn as sns
 import networkx as nx
 from scipy.interpolate import interp1d
 from scipy.optimize import linear_sum_assignment
+from scipy.spatial import KDTree
 
 
 def quick_tracklets(spots_df):
     start_times = spots_df.groupby("track_id")["FRAME"].min()
     end_times = spots_df.groupby("track_id")["FRAME"].max()
     start_id = spots_df.groupby("track_id")["ID"].first()
+    end_id = spots_df.groupby("track_id")["ID"].last()
 
     tracklets = pd.DataFrame(
-        {"start_time": start_times, "end_time": end_times, "start_id": start_id})
+        {"start_time": start_times, "end_time": end_times, "start_id": start_id, "end_id": end_id})
+
+    print(tracklets)
 
     return tracklets
 
@@ -109,7 +113,157 @@ def plot_stairplot(sorted_distances, ax, d_max=None):
     ax.set_ylabel("cumulative distribution")
 
 
-def map_divisions(spots_df, graph, interphase_dividers, savepath=None) -> nx.DiGraph:
+def merge_close_tracklets(tracklets: pd.DataFrame, spots_df: pd.DataFrame, graph: nx.DiGraph, max_dis=6, latest_time=120):
+    graph = graph.copy()
+    final_tp = spots_df["FRAME"].max()
+    spots_df = spots_df.copy()
+
+    data = np.array(spots_df[["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]].values)
+    data[:, 0] = data[:, 0]*max_dis*2
+    tree = KDTree(data)
+
+    loc_map = {idx: i for i, idx in zip(spots_df.index, spots_df["ID"])}
+
+    n_changed = 0
+
+    for tracklet in tracklets.itertuples():
+
+        if tracklet.Index == 0:
+            continue
+
+        t = tracklet.end_time
+        start = tracklet.start_time
+        sp = tracklet.end_id
+        if t > latest_time:
+            continue
+
+
+        pt_loc = loc_map[sp]
+        pt = np.array(spots_df.loc[pt_loc, ["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]].values)
+        pt_id = spots_df.loc[pt_loc, "ID"]
+        pt[0] = pt[0]*max_dis*2
+
+        dd, ii = tree.query(pt, 2)
+
+        if dd[1] > max_dis:
+            # no neighbor found near end of track
+            continue
+
+        this_spot_loc = spots_df.index[ii[1]]
+        tid = spots_df.loc[this_spot_loc, "track_id"]
+        tloc = spots_df.loc[this_spot_loc, ["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+        this_spot_id = spots_df.loc[this_spot_loc, "ID"]
+
+        if tracklets.loc[tid, "start_time"] < start or tracklets.loc[tid, "end_time"] <= t:
+            continue
+
+        print(tid)
+        if tid == 0:
+            continue
+
+        prev_spot = spots_df[(spots_df["FRAME"] == tloc[0]) & (spots_df["track_id"] == tracklet.Index)]
+        prev_spot_loc = prev_spot[["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+
+        print(np.linalg.norm(tloc - prev_spot_loc[0]))
+        print(t, tracklets.loc[tid, "start_time"], start)
+
+        dis = np.linalg.norm(tloc - prev_spot_loc[0])
+        if dis > max_dis:
+            continue
+
+        # swap tracklet ids after time point
+        outs = list(graph.neighbors(str(this_spot_id)))
+        print(outs)
+        if len(outs) == 0:
+            continue
+
+        assert len(outs) == 1, "tid has multiple children"
+        child = outs[0]
+
+        print(str(pt_id))
+        graph.add_edge(str(pt_id), str(child))
+        graph.remove_edge(str(this_spot_id), child)
+
+        before = (spots_df["track_id"] == tid) & (spots_df["FRAME"] <= t)
+        after = spots_df[(spots_df["track_id"] == tid) & (spots_df["FRAME"] > t)].index
+
+        spots_df.loc[after, "track_id"] = tracklet.Index
+
+        n_changed += 1
+
+    print(f"made {n_changed} swaps")
+
+    return spots_df, graph
+
+
+def interpolate_tracklets(spots_df, graph):
+    # finds tracklets with frame gaps and interpolates position
+    graph = graph.copy()
+
+    parents = np.array([parent for parent, _ in graph.edges])
+    children = np.array([child for _, child in graph.edges])
+
+    print(parents)
+    print(spots_df["ID"])
+
+    loc_map = {idx: i for i, idx in zip(spots_df.index, spots_df["ID"])}
+
+    parent_locs = np.array([loc_map[p] for p in parents])
+    child_locs = np.array([loc_map[c] for c in children])
+
+    print(parent_locs)
+
+    parent_frame = spots_df.loc[parent_locs, "FRAME"]
+    children_frame = spots_df.loc[child_locs, "FRAME"]
+
+    diff = children_frame.values - parent_frame.values
+
+    assert np.min(diff) > 0, "GRAPH EDGES MUST BE PARENT -> CHILD"
+    print(f"interpolating {np.sum(diff > 1)} edges")
+    new_pts = {
+        "ID": [],
+        "FRAME": [],
+        "track_id": [],
+        "POSITION_X": [],
+        "POSITION_Y": [],
+        "POSITION_Z": []
+    }
+
+    this_id = spots_df.index.max() + 10000
+
+    for p, c, pid, cid in zip(parent_locs[diff > 1], child_locs[diff > 1], parents[diff > 1], children[diff > 1]):
+        pt, *ploc = spots_df.loc[p, ["FRAME", "POSITION_Z", "POSITION_Y", "POSITION_X"]].values
+        ct, *cloc = spots_df.loc[c, ["FRAME", "POSITION_Z", "POSITION_Y", "POSITION_X"]].values
+
+        last_id = int(pid)
+
+        for new_pt_v in range(1, round(ct - pt)):
+            new_pt_loc = interp1d([pt, ct], [ploc, cloc], axis=0)(pt + new_pt_v)
+
+            new_pts["ID"].append(this_id)
+            graph.add_edge(str(last_id), str(this_id))
+            last_id = this_id
+            this_id = this_id + 1
+
+            new_pts["FRAME"].append(pt + new_pt_v)
+            new_pts["track_id"].append(spots_df.loc[p, "track_id"])
+            new_pts["POSITION_Z"].append(new_pt_loc[0])
+            new_pts["POSITION_Y"].append(new_pt_loc[1])
+            new_pts["POSITION_X"].append(new_pt_loc[2])
+
+        graph.remove_edge(str(pid), str(cid))
+
+    new_pts = pd.DataFrame(new_pts, index=new_pts["ID"])
+
+    spots_df = pd.concat([spots_df, new_pts], axis="index")
+
+    print(len(list(graph.nodes)))
+    print(len(spots_df))
+
+    return spots_df, graph
+
+
+def map_divisions(spots_df, graph, interphase_dividers, savepath=None, no_assign_dis_cost=100) -> nx.DiGraph:
 
     if savepath:
         fig1, axes1 = plt.subplots(2, 2, figsize=(10, 10))
@@ -118,17 +272,31 @@ def map_divisions(spots_df, graph, interphase_dividers, savepath=None) -> nx.DiG
     tracklets = quick_tracklets(spots_df)
     print(tracklets["start_time"].describe())
 
+
+
     for division in range(len(interphase_dividers) - 1):
         div_start, div_end = interphase_dividers[division], interphase_dividers[division + 1]
 
         distances, parent_indices, child_indices = get_sister_distances2(spots_df, tracklets, div_start, div_end)
+        # print(distances)
         distances = np.nan_to_num(distances, nan=1000)
+        n_in = distances.shape[0]
+        n_out = distances.shape[1]
+        no_assign = np.ones((n_in, n_in)) * no_assign_dis_cost
+
+        print(distances.shape, no_assign.shape)
+
+        distances = np.hstack([distances, no_assign])
+
+        # print(distances.shape)
         sorted_distances = np.sort(distances, axis=1)
 
         assignment = linear_sum_assignment(distances)
+        # print(assignment)
+        print(f"number unassigned: {np.sum(assignment[1] > n_out) + max(0, distances.shape[0] - distances.shape[1])}")
 
-        childs = [child_indices[i] for i in assignment[0]]
-        parents = [parent_indices[i, j] for i, j in zip(*assignment)]
+        childs = [child_indices[i] for i, j in zip(*assignment) if j < n_out]
+        parents = [parent_indices[i, j] for i, j in zip(*assignment) if j < n_out]
 
         graph.add_edges_from([(str(p), str(c)) for p, c in zip(parents, childs)])
 
