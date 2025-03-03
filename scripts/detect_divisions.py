@@ -39,6 +39,7 @@ def process_graph(spots_df: pd.DataFrame, graph: nx.DiGraph) -> pd.DataFrame:
 
     taken as a postprocessing step after division detection
     """
+    spots_df = spots_df.copy()
 
     # assign track index as entire connected lineage of a tracked nucleus
     new_track_idx = {idx: 0 for idx in spots_df["ID"]}
