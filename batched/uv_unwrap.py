@@ -107,7 +107,7 @@ def process_file(j, infile, args, outpath):
     val = np.max(projected_data[0], axis=0)
     argmax = np.argmax(projected_data[0], axis=0)
 
-    loc = projected_coordinates + projected_normals * normal_offsets[argmax]
+    loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
     val_outfile = outpath / "vals" / f"{infile.stem}_unwrap_max_project.tif"
     loc_outfile = outpath / "locs" / f"{infile.stem}_unwrap_locs.tif"
