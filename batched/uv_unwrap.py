@@ -59,10 +59,11 @@ def main():
 
     v_stack = np.stack(vals, 0)
     l_stack = np.stack(locs, 0)
+    maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
     tifffile.imwrite(outpath / f"all_vals.tif", v_stack)
     tifffile.imwrite(outpath / f"all_locs.tif", l_stack)
-    tifffile.imwrite(outpath / f"all_vals_max_project.tif", np.stack(maxp, 0, dtype=np.uint8))
+    tifffile.imwrite(outpath / f"all_vals_max_project.tif", maxp_stack)
 
 
 def process_cli() -> argparse.Namespace:
