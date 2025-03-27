@@ -2,7 +2,7 @@ import tifffile
 import numpy as np
 
 
-FILEPATH = r"D:\Tracking\NucleiTracking\data\interim\confocal\embryo027\Embryo027-cleaned.tif"
+FILEPATH = r"/data/interim/confocal/embryo027/Embryo027-cleaned.tif"
 # T_RANGE = (0, 5)  # get the first 5 frames of the tif file
 
 
