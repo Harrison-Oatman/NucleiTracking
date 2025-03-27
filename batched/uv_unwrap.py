@@ -53,14 +53,16 @@ def main():
 
         vals_and_locs = [job.get() for job in jobs]
 
-    vals = [v for v, _ in vals_and_locs]
-    locs = [l for _, l in vals_and_locs]
+    vals = [v for v, _, _ in vals_and_locs]
+    locs = [l for _, l, _ in vals_and_locs]
+    maxp = [m for _, _, m in vals_and_locs]
 
     v_stack = np.stack(vals, 0)
     l_stack = np.stack(locs, 0)
 
     tifffile.imwrite(outpath / f"all_vals.tif", v_stack)
-    tifffile.imwrite(outpath / f"all_locs.tif", np.array(l_stack, dtype=int))
+    tifffile.imwrite(outpath / f"all_locs.tif", l_stack)
+    tifffile.imwrite(outpath / f"all_vals_max_project.tif", np.stack(maxp, 0, dtype=np.uint8))
 
 
 def process_cli() -> argparse.Namespace:
@@ -109,7 +111,7 @@ def process_file(j, infile, args, outpath):
 
     loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
-    # convert to 16 bit float
+    # convert to 16-bit float
     val = val.astype(np.float16)
     loc = loc.astype(np.float16)
 
@@ -120,7 +122,7 @@ def process_file(j, infile, args, outpath):
     tifffile.imwrite(val_outfile, val)
     tifffile.imwrite(loc_outfile, np.array(loc))
 
-    return val, loc
+    return val, loc, argmax
 
 
 if __name__ == "__main__":
