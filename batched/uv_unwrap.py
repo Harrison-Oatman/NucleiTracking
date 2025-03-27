@@ -109,6 +109,10 @@ def process_file(j, infile, args, outpath):
 
     loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
+    # convert to 16 bit float
+    val = val.astype(np.float16)
+    loc = loc.astype(np.float16)
+
     val_outfile = outpath / "vals" / f"{infile.stem}_unwrap_max_project.tif"
     loc_outfile = outpath / "locs" / f"{infile.stem}_unwrap_locs.tif"
 
