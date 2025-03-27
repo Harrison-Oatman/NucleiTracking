@@ -73,7 +73,7 @@ def process_cli() -> argparse.Namespace:
     argparser.add_argument_group("box")
     argparser.add_argument("--range", nargs=3, type=int, default=[0, 0, 1])
     argparser.add_argument("--resolution", nargs=3, type=int, default=[1, 1, 1])
-    argparser.add_argument("--uv_grid_steps", type=int, default=2048)
+    argparser.add_argument("--uv_grid_steps", type=int, default=1024)
 
     argparser.add_argument_group("multiprocessing")
     argparser.add_argument("--nprocs", default=1, type=int)
