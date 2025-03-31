@@ -39,6 +39,8 @@ def main():
     files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
 
+    stem = Path(args.obj).stem
+
     nprocs = args.nprocs
 
     start = time.time()
@@ -57,13 +59,14 @@ def main():
     locs = [l for _, l, _ in vals_and_locs]
     maxp = [m for _, _, m in vals_and_locs]
 
+
     v_stack = np.stack(vals, 0)
     l_stack = np.stack(locs, 0)
     maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
-    tifffile.imwrite(outpath / f"all_vals.tif", v_stack)
-    tifffile.imwrite(outpath / f"all_locs.tif", l_stack)
-    tifffile.imwrite(outpath / f"all_vals_max_project.tif", maxp_stack)
+    tifffile.imwrite(outpath / f"{stem}_all_vals.tif", v_stack)
+    tifffile.imwrite(outpath / f"{stem}_all_locs.tif", l_stack)
+    tifffile.imwrite(outpath / f"{stem}_all_vals_max_project.tif", maxp_stack)
 
 
 def process_cli() -> argparse.Namespace:
