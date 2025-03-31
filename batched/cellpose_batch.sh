@@ -6,7 +6,7 @@
 #SBATCH --mem=40G                            # Memory limit
 #SBATCH --partition=gpu                      # Partition name
 #SBATCH --gpus=1                             # Number of GPUs
-#SBATCH --cpus-per-task=2                   # Number of CPU cores per task
+#SBATCH --cpus-per-task=9                  # Number of CPU cores per task
 
 
 # Load your Python environment if needed
@@ -16,4 +16,4 @@ source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/multiprocess_cellpose.py -i "/mnt/home/hoatman/ceph/lightsheet_trk_20250319a/raw_image/downscaled/uv_unwrap/small_all_vals.tif" --model uv_005 --diam 12 --use_gpu --axes tyx --batch_size 64 --nprocs 1 --level WARN --channels 0 0
+python NucleiTracking/batched/multiprocess_cellpose.py -i "/mnt/home/hoatman/ceph/lightsheet_trk_20250319a/raw_image/downscaled/uv_unwrap/small_all_vals.tif" --model uv_005 --diam 12 --use_gpu --axes tyx --batch_size 64 --nprocs 8 --level WARN --channels 0 0
