@@ -10,6 +10,7 @@
 
 
 # Load your Python environment if needed
+module load modules/2.2-20230808
 module load cuda/11.8.0
 source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
