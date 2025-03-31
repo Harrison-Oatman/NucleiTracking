@@ -100,12 +100,33 @@ def process_file(j, infile, args, outpath):
     mesh_uv = tcmesh.ObjMesh.read_obj(args.obj)
     normal_offsets = np.linspace(args.range[0], args.range[1], args.range[2])
 
-    projected_data, projected_coordinates, projected_normals = tcinterp.create_cartographic_projections(
-        image=np.expand_dims(mapping_arr, axis=0),
-        mesh=mesh_uv,
-        resolution=(args.resolution[0], args.resolution[1], args.resolution[2]),
-        normal_offsets=normal_offsets,
-        uv_grid_steps=args.uv_grid_steps,)
+    # projected_data, projected_coordinates, projected_normals = tcinterp.create_cartographic_projections(
+    #     image=np.expand_dims(mapping_arr, axis=0),
+    #     mesh=mesh_uv,
+    #     resolution=(args.resolution[0], args.resolution[1], args.resolution[2]),
+    #     normal_offsets=normal_offsets,
+    #     uv_grid_steps=args.uv_grid_steps,)
+
+    mesh = mesh_uv
+    image = np.expand_dims(mapping_arr, axis=0)
+    uv_grid_steps = args.uv_grid_steps
+    map_back = True
+    use_fallback = "auto"
+    resolution = (args.resolution[0], args.resolution[1], args.resolution[2])
+
+    projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.vertices, domain="per-vertex",
+                                                                        uv_grid_steps=uv_grid_steps,
+                                                                        distance_threshold=0.0000001,
+                                                                        map_back=map_back,
+                                                                        use_fallback=use_fallback)
+    projected_normals = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.normals, domain="per-vertex",
+                                                                    uv_grid_steps=uv_grid_steps,
+                                                                    distance_threshold=0.0000001,
+                                                                    map_back=map_back, use_fallback=use_fallback)
+    projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(image,
+                                                                           projected_coordinates,
+                                                                           projected_normals, normal_offsets,
+                                                                           resolution)
 
     val = np.max(projected_data[0], axis=0)
     argmax = np.argmax(projected_data[0], axis=0)
