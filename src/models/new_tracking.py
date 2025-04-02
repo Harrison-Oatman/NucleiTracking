@@ -464,6 +464,14 @@ def get_sister_distances(spots_df: pd.DataFrame, graph: DiGraph, tracklets: pd.D
     cost_matrix = np.ones((len(sl_children), len(division_fl.index))) * 10000
     parent_map = {}
 
+    flp = division_spots[division_spots["linear_track_id"].isin(division_fl.index)].index
+    slp = division_spots[division_spots["linear_track_id"].isin(division_sl.index)].index
+
+
+
+    spots_df.loc[flp, "status"] = 1
+    spots_df.loc[slp, "status"] = 2
+
     for i, child in tqdm(enumerate(sl_children), desc="constructing cost matrix"):
         parent_map[i] = {}
         for parent, parent_tracklet, cost in zip(sl_parents[i], sl_parent_tracklets[i], sl_cost[i]):
@@ -472,21 +480,22 @@ def get_sister_distances(spots_df: pd.DataFrame, graph: DiGraph, tracklets: pd.D
             cost_matrix[i, j] = cost
             parent_map[i][j] = parent
 
-    return cost_matrix, parent_map, sl_children
+    return cost_matrix, parent_map, sl_children, spots_df
 
 
-def map_divisions(spots_df: pd.DataFrame, graph: DiGraph, interphase_dividers, new_track_cost=20) -> DiGraph:
+def map_divisions(spots_df: pd.DataFrame, graph: DiGraph, interphase_dividers, new_track_cost=20):
     spots_df = spots_df.copy()
+    spots_df["status"] = 0
     graph = graph.copy()
 
     for start, end in zip(interphase_dividers[:-1], interphase_dividers[1:]):
         print(f"mapping divisions between {start} and {end}")
         tracklets = quick_tracklets(spots_df, column="linear_track_id")
-        cost_matrix, parent_map, sl_children = get_sister_distances(spots_df, graph, tracklets, start, end, 25)
+        cost_matrix, parent_map, sl_children, spots_df = get_sister_distances(spots_df, graph, tracklets, start, end, 25)
 
         # add no assignment cost
         n_in, n_out = cost_matrix.shape
-        new_track_costs = np.ones((n_in, n_out)) * new_track_cost
+        new_track_costs = np.ones((n_in, n_in)) * new_track_cost
         cost_matrix = np.hstack([cost_matrix, new_track_costs])
 
         # find the best matching
@@ -498,12 +507,13 @@ def map_divisions(spots_df: pd.DataFrame, graph: DiGraph, interphase_dividers, n
             if j >= n_out:
                 continue
 
+
             child = sl_children[i]
             parent = parent_map[i][j]
 
             graph.add_edge(parent, child, track_id=0, time=1)
 
-    return graph
+    return graph, spots_df
 
 
 def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
