@@ -74,7 +74,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         json.dump(info, f, indent=4)
 
     # Save the reformatted image as a .tif file
-    tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
+    # tifffile.imwrite(output_filename, vol, dtype=vol.dtype)
 
     out_dtype = vol.dtype
 
