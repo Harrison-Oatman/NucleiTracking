@@ -43,9 +43,14 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         logging.info(f"File {output_filename} already exists, skipping.")
         return
 
-    # file e.g.
-    with h5py.File(filename, 'r') as h5_file:
-        raw_vol = h5_file['/Data'][:]  # stuck here
+    try:
+        # file e.g.
+        with h5py.File(filename, 'r') as h5_file:
+            raw_vol = h5_file['/Data'][:]
+
+    except EOFError:
+        logging.error(f"EOFError: {filename} is empty or corrupted.")
+        return
 
     logging.info(f"read {filename.name}")
     vol = np.array(raw_vol).astype(np.int16)
