@@ -51,7 +51,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     except OSError:
         logging.error(f"EOFError: {filename} is empty or corrupted.")
-        return
+        return downscaled_outfile.stem
 
     logging.info(f"read {filename.name}")
     vol = np.array(raw_vol).astype(np.int16)
@@ -99,6 +99,8 @@ def reconstruct(filename, output_dirname, sd, ch, t):
     tifffile.imwrite(mips_outfile, mip, dtype=np.uint16)
 
     logging.info(f"saved {output_filename}")
+
+    return None
 
 
 def main():
@@ -152,8 +154,18 @@ def main():
                     for f, t in zip(filepaths, sorted(time_points)):
                         jobs.append(pool.apply_async(reconstruct, (f, output_dir, sd, ch, t)))
 
+        failed = []
+
         for job in jobs:
-            job.get()
+            out = job.get()
+
+            if out is not None:
+                failed.append(out)
+
+    print("DONE")
+
+    if failed:
+        logging.error(f"Failed to process the following files: {failed}")
 
 
 def parse_args():
