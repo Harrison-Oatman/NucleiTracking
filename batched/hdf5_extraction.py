@@ -49,7 +49,7 @@ def reconstruct(filename, output_dirname, sd, ch, t):
         with h5py.File(filename, 'r') as h5_file:
             raw_vol = h5_file['/Data'][:]
 
-    except EOFError:
+    except OSError:
         logging.error(f"EOFError: {filename} is empty or corrupted.")
         return
 
