@@ -37,10 +37,11 @@ def reconstruct(filename, output_dirname, sd, ch, t):
 
     # Output file name
     output_filename = Path(output_dirname) / f"img_ch{ch}_ang{ang_str}_time{t:03d}.tif"
+    downscaled_outfile = output_dirname / "downscaled" / output_filename.name.replace(".tif", "_downscaled.tif")
 
     # Skip existing files if set to do so
-    if output_filename.exists():
-        logging.info(f"File {output_filename} already exists, skipping.")
+    if downscaled_outfile.exists():
+        logging.info(f"File {downscaled_outfile} already exists, skipping.")
         return
 
     try:
