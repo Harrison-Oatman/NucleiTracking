@@ -11,4 +11,4 @@ source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/uv_unwrap.py -i "/mnt/home/hoatman/ceph/lightsheet_20250207/raw_image/downscaled/recon" --obj "/mnt/home/hoatman/ceph/lightsheet_20250207/raw_image/downscaled/recon/large.obj" --nprocs 16 --range "-12" 4 13
+python NucleiTracking/batched/uv_unwrap.py -i "/mnt/home/hoatman/ceph/lightsheet_20250414/raw_image/downscaled/recon" --obj "/mnt/home/hoatman/ceph/lightsheet_20250414/raw_image/downscaled/recon/large.obj" --nprocs 16 --range "-12" 4 13
