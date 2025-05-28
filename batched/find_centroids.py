@@ -8,7 +8,7 @@ import pandas as pd
 
 def find_centroids(masks, locs):
 
-    props = regionprops_table(masks, locs, properties=("centroid", "intensity_mean"))
+    props = regionprops_table(masks, locs, properties=("centroid", "intensity_mean", "area"))
 
     return pd.DataFrame(props)
 
