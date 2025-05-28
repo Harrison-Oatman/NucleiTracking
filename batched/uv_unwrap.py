@@ -36,6 +36,9 @@ def main():
 
     for obj in Path(args.obj).glob("*.obj"):
         name = obj.stem
+        logging.info(f"processing object {name}")
+        logging.info(f"{outpath / name / 'vals'}")
+
         (outpath / name / "vals").mkdir(exist_ok=True, parents=True)
         (outpath / name / "locs").mkdir(exist_ok=True, parents=True)
 
@@ -108,7 +111,7 @@ def process_file(j, infile, args, outpath):
 
     for obj_fp in Path(args.obj).glob("*.obj"):
 
-        print(obj_fp)
+        logging.info(obj_fp)
 
         obj_name = obj_fp.stem
 
