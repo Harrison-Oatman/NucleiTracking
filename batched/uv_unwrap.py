@@ -33,13 +33,14 @@ def main():
     outpath = args.output
     outpath = Path(outpath) if outpath is not None else inpath.parent / f"uv_unwrap"
     outpath.mkdir(exist_ok=True)
-    (outpath / "vals").mkdir(exist_ok=True)
-    (outpath / "locs").mkdir(exist_ok=True)
+
+    for obj in Path(args.obj).glob("*.obj"):
+        name = obj.stem
+        (outpath / name / "vals").mkdir(exist_ok=True, parents=True)
+        (outpath / name / "locs").mkdir(exist_ok=True, parents=True)
 
     files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
     print(f"found {len(files)} tif files")
-
-    stem = Path(args.obj).stem
 
     nprocs = args.nprocs
 
@@ -55,18 +56,21 @@ def main():
 
         vals_and_locs = [job.get() for job in jobs]
 
-    vals = [v for v, _, _ in vals_and_locs]
-    locs = [l for _, l, _ in vals_and_locs]
-    maxp = [m for _, _, m in vals_and_locs]
+    for obj in Path(args.obj).glob("*.obj"):
+        name = obj.stem
+
+        vals = [v[name] for v, _, _ in vals_and_locs]
+        locs = [l[name] for _, l, _ in vals_and_locs]
+        maxp = [m[name] for _, _, m in vals_and_locs]
 
 
-    v_stack = np.stack(vals, 0)
-    l_stack = np.stack(locs, 0)
-    maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
+        v_stack = np.stack(vals, 0)
+        l_stack = np.stack(locs, 0)
+        maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
-    tifffile.imwrite(outpath / f"{stem}_all_vals.tif", v_stack)
-    tifffile.imwrite(outpath / f"{stem}_all_locs.tif", l_stack)
-    tifffile.imwrite(outpath / f"{stem}_all_vals_max_project.tif", maxp_stack)
+        tifffile.imwrite(outpath / f"{name}_all_vals.tif", v_stack)
+        tifffile.imwrite(outpath / f"{name}_all_locs.tif", l_stack)
+        tifffile.imwrite(outpath / f"{name}_all_vals_max_project.tif", maxp_stack)
 
 
 def process_cli() -> argparse.Namespace:
@@ -74,7 +78,7 @@ def process_cli() -> argparse.Namespace:
 
     argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
     argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
-    argparser.add_argument("--obj", help="path to blender object file", default=None)
+    argparser.add_argument("--obj", help="path to blender object file directory", default=None)
 
     argparser.add_argument_group("box")
     argparser.add_argument("--range", nargs=3, type=int, default=[0, 0, 1])
@@ -100,54 +104,55 @@ def process_file(j, infile, args, outpath):
 
     mapping_arr = tifffile.imread(str(infile))
 
-    mesh_uv = tcmesh.ObjMesh.read_obj(args.obj)
-    normal_offsets = np.linspace(args.range[0], args.range[1], args.range[2])
+    out = {}
 
-    # projected_data, projected_coordinates, projected_normals = tcinterp.create_cartographic_projections(
-    #     image=np.expand_dims(mapping_arr, axis=0),
-    #     mesh=mesh_uv,
-    #     resolution=(args.resolution[0], args.resolution[1], args.resolution[2]),
-    #     normal_offsets=normal_offsets,
-    #     uv_grid_steps=args.uv_grid_steps,)
+    for obj_fp in Path(args.obj).glob("*.obj"):
 
-    mesh = mesh_uv
-    image = np.expand_dims(mapping_arr, axis=0)
-    uv_grid_steps = args.uv_grid_steps
-    map_back = True
-    use_fallback = "auto"
-    resolution = (args.resolution[0], args.resolution[1], args.resolution[2])
+        obj_name = obj_fp.stem
 
-    projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.vertices, domain="per-vertex",
+        mesh_uv = tcmesh.ObjMesh.read_obj(args.obj)
+        normal_offsets = np.linspace(args.range[0], args.range[1], args.range[2])
+
+        mesh = mesh_uv
+        image = np.expand_dims(mapping_arr, axis=0)
+        uv_grid_steps = args.uv_grid_steps
+        map_back = True
+        use_fallback = "auto"
+        resolution = (args.resolution[0], args.resolution[1], args.resolution[2])
+
+        projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.vertices, domain="per-vertex",
+                                                                            uv_grid_steps=uv_grid_steps,
+                                                                            distance_threshold=0.0000001,
+                                                                            map_back=map_back,
+                                                                            use_fallback=use_fallback)
+        projected_normals = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.normals, domain="per-vertex",
                                                                         uv_grid_steps=uv_grid_steps,
                                                                         distance_threshold=0.0000001,
-                                                                        map_back=map_back,
-                                                                        use_fallback=use_fallback)
-    projected_normals = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.normals, domain="per-vertex",
-                                                                    uv_grid_steps=uv_grid_steps,
-                                                                    distance_threshold=0.0000001,
-                                                                    map_back=map_back, use_fallback=use_fallback)
-    projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(image,
-                                                                           projected_coordinates,
-                                                                           projected_normals, normal_offsets,
-                                                                           resolution)
+                                                                        map_back=map_back, use_fallback=use_fallback)
+        projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(image,
+                                                                               projected_coordinates,
+                                                                               projected_normals, normal_offsets,
+                                                                               resolution)
 
-    val = np.max(projected_data[0], axis=0)
-    argmax = np.argmax(projected_data[0], axis=0)
+        val = np.max(projected_data[0], axis=0)
+        argmax = np.argmax(projected_data[0], axis=0)
 
-    loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
+        loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
-    # convert to 16-bit float
-    val = val.astype(np.float16)
-    loc = loc.astype(np.float16)
+        # convert to 32-bit float
+        val = val.astype(np.float32)
+        loc = loc.astype(np.float16)
 
-    val_outfile = outpath / "vals" / f"{infile.stem}_unwrap_max_project.tif"
-    loc_outfile = outpath / "locs" / f"{infile.stem}_unwrap_locs.tif"
+        val_outfile = outpath / obj_name / "vals" / f"{infile.stem}_unwrap.tif"
+        loc_outfile = outpath / obj_name / "locs" / f"{infile.stem}_unwrap_locs.tif"
 
-    # save the results
-    tifffile.imwrite(val_outfile, val)
-    tifffile.imwrite(loc_outfile, np.array(loc))
+        # save the results
+        tifffile.imwrite(val_outfile, val)
+        tifffile.imwrite(loc_outfile, np.array(loc))
 
-    return val, loc, argmax
+        out[obj_name] = (val, loc, argmax)
+
+    return out
 
 
 if __name__ == "__main__":
