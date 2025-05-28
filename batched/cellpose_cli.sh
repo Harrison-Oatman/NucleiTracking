@@ -20,6 +20,8 @@ conda activate cellpose
 TOPDIR="/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/uv_unwrap/"
 SAVEDIR="${TOPDIR}/cellpose_output"
 
+export SAVEDIR
+
 mkdir -p "$SAVEDIR"
 
 # GPU list (0,1,2)
@@ -31,12 +33,12 @@ run_cellpose_file() {
     gpu=$(( (jobnum - 1) % 3 ))
     echo "Processing $file on GPU $gpu"
     echo "$SAVEDIR"
-    python -m cellpose --image_path "$file" --pretrained_model uv_006 --diameter 11.54 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --dir_above --gpu $gpu
+    python -m cellpose --image_path "$file" --pretrained_model uv_006 --diameter 11.54 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu
 }
 export -f run_cellpose_file
 
 # Run on *loc.tif in top-level directory
-echo "Running cellpose.py on top-level *loc.tif files..."
-find "$TOPDIR" -maxdepth 1 -type f -name '*locs.tif' | \
+echo "Running cellpose.py on top-level *vals.tif files..."
+find "$TOPDIR" -maxdepth 1 -type f -name '*vals.tif' | \
     parallel --jobs 3 --ungroup --env run_cellpose_file --env SAVEDIR \
     'run_cellpose_file {} {#}'
