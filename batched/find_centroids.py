@@ -30,7 +30,6 @@ def main():
     mesh_names = set()
 
     for file in masks_files:
-        print(file.stem)
         match = pattern.match(file.stem)
         if not match:
             continue
@@ -44,7 +43,7 @@ def main():
     locs = {}
 
     for mesh_name in mesh_names:
-        locs_file = base / mesh_name / "locs" / f"{mesh_name}_all_locs.tif"
+        locs_file = base / mesh_name / "locs" / f"{mesh_name}_full_locs.tif"
         if locs_file.exists():
             locs[mesh_name] = tifffile.imread(locs_file)
         else:
