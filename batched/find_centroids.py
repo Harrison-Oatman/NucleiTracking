@@ -32,7 +32,6 @@ def main():
     for file in masks_files:
         print(file.stem)
         match = pattern.match(file.stem)
-        print(match)
         if not match:
             continue
 
