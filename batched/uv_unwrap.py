@@ -139,18 +139,25 @@ def process_file(j, infile, args, outpath):
 
         loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
-        # convert to 32-bit float
-        val = val.astype(np.float32)
+        # convert to 16-bit float
+        val = val.astype(np.float16)
         loc = loc.astype(np.float16)
 
-        val_outfile = outpath / obj_name / "vals" / f"{infile.stem}_unwrap.tif"
-        loc_outfile = outpath / obj_name / "locs" / f"{infile.stem}_unwrap_locs.tif"
-
-        # save the results
-        tifffile.imwrite(val_outfile, val)
-        tifffile.imwrite(loc_outfile, np.array(loc))
-
         out[obj_name] = (val, loc, argmax)
+
+        full_val_outfile = outpath / obj_name / "vals" / f"{infile.stem}_unwrap.tif"
+
+        full_val = projected_data[0]
+        full_val = np.clip((full_val - np.quantile(mapping_arr, 0.5)) / (np.quantile(full_val, 0.995) - np.quantile(mapping_arr, 0.5)), 0, 1)
+        full_val = np.array(np.rint(full_val * 255), dtype=np.uint8)
+
+        tifffile.imwrite(full_val_outfile, full_val)
+
+        if j == 0:
+            full_loc_outfile = outpath / obj_name / "locs" / f"full_locs.tif"
+            full_locs = np.expand_dims(projected_coordinates, 0) + np.expand_dims(projected_normals, 0) * np.expand_dims(np.array(normal_offsets), [1, 2, 3])
+
+            tifffile.imwrite(full_loc_outfile, full_locs)
 
     return out
 
