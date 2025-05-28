@@ -62,9 +62,11 @@ def main():
     for obj in Path(args.obj).glob("*.obj"):
         name = obj.stem
 
-        vals = [v[name] for v, _, _ in vals_and_locs]
-        locs = [l[name] for _, l, _ in vals_and_locs]
-        maxp = [m[name] for _, _, m in vals_and_locs]
+        this_vals_and_locs = [v[name] for v in vals_and_locs if name in v]
+
+        vals = [v for v, _, _ in this_vals_and_locs]
+        locs = [l for _, l, _ in this_vals_and_locs]
+        maxp = [m for _, _, m in this_vals_and_locs]
 
 
         v_stack = np.stack(vals, 0)
