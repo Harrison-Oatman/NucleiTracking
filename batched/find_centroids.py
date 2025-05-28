@@ -21,7 +21,7 @@ def main():
 
     # regex get mesh name and timepoint
     # sample filename: bottom_recon_fused_tp_366_ch_0_unwrap_cp_masks.tif
-    pattern = re.compile(r"(?P<mesh_name>.+)_recon_fused_tp_(?P<timepoint>\d+)_ch_0_unwrap_cp_masks\.tif")
+    pattern = re.compile(r"(?P<mesh_name>.+)_recon_fused_tp_(?P<timepoint>\d+)_ch_0_unwrap_cp_masks")
     masks_files = list(masks_path.glob("*.tif"))
 
     all_files = []
