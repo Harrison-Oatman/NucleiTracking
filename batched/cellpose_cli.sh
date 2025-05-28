@@ -14,6 +14,7 @@ echo "starting task"
 module load modules/2.2-20230808
 module load cuda/11.8.0
 source ~/miniforge3/etc/profile.d/conda.sh
+export PATH="$HOME/bin:$PATH"
 conda activate cellpose
 
 TOPDIR="/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/uv_unwrap/"
