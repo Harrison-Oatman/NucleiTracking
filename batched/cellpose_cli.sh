@@ -37,4 +37,4 @@ export -f run_cellpose_file
 echo "Running cellpose.py on top-level *loc.tif files..."
 find "$TOPDIR" -maxdepth 1 -type f -name '*locs.tif' | \
     parallel --jobs 3 --ungroup --env run_cellpose_file --env SAVEDIR \
-    'run_cellpose_file {} {= $_ % 3 =}'
+    'run_cellpose_file {} {= # % 3 =}'
