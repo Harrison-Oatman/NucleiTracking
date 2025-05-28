@@ -108,6 +108,8 @@ def process_file(j, infile, args, outpath):
 
     for obj_fp in Path(args.obj).glob("*.obj"):
 
+        print(obj_fp)
+
         obj_name = obj_fp.stem
 
         mesh_uv = tcmesh.ObjMesh.read_obj(args.obj)
