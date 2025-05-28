@@ -153,7 +153,7 @@ def process_file(j, infile, args, outpath):
         full_val_outfile = outpath / obj_name / "vals" / f"{infile.stem}_unwrap.tif"
 
         full_val = projected_data[0]
-        full_val = np.clip((full_val - np.quantile(mapping_arr, 0.5)) / (np.quantile(full_val, 0.995) - np.quantile(mapping_arr, 0.5)), 0, 1)
+        full_val = np.clip((full_val - np.quantile(mapping_arr, 0.5)) / (np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)), 0, 1)
         full_val = np.array(np.rint(full_val * 255), dtype=np.uint8)
 
         tifffile.imwrite(full_val_outfile, full_val)
