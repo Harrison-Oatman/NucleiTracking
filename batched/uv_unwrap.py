@@ -112,7 +112,7 @@ def process_file(j, infile, args, outpath):
 
         obj_name = obj_fp.stem
 
-        mesh_uv = tcmesh.ObjMesh.read_obj(args.obj)
+        mesh_uv = tcmesh.ObjMesh.read_obj(str(obj_fp))
         normal_offsets = np.linspace(args.range[0], args.range[1], args.range[2])
 
         mesh = mesh_uv
