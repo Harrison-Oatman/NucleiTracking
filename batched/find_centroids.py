@@ -46,11 +46,12 @@ def find_centroids_2d(masks, locs, vals, argv):
         mapper = {
             "centroid-0": "uv_v",
             "centroid-1": "uv_u",
-            "intensity_mean-0": "px_y",
-            "intensity_mean-1": "px_x",
-            "intensity_mean-2": "uv_distance_from_edge",
-            "intensity_mean-3": "intensity_mean",
-            "intensity_mean-4": "uv_z",
+            "intensity_mean-0": "px_z",
+            "intensity_mean-1": "px_y",
+            "intensity_mean-2": "px_x",
+            "intensity_mean-3": "uv_distance_from_edge",
+            "intensity_mean-4": "intensity_mean",
+            "intensity_mean-5": "uv_z",
         }
 
         props = props.rename(columns=mapper)
@@ -127,7 +128,7 @@ def main():
             full_locs = tifffile.imread(locs_file)
             dis = distance_transform_edt(1 - np.isnan(full_locs[..., 0]))
 
-            full_locs = np.concatenate([full_locs, dis], axis=-1)
+            full_locs = np.concatenate([full_locs, np.expand_dims(dis, -1)], axis=-1)
 
             locs[mesh_name] = full_locs
 
