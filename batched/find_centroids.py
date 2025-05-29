@@ -103,7 +103,7 @@ def main():
 
     for mesh, mask_file in all_files_2d:
 
-        masks = tifffile.imread(mask_file[2])
+        masks = tifffile.imread(mask_file)
         locs = tifffile.imread(base / f"{mesh}_all_locs.tif")
         vals = tifffile.imread(base / f"{mesh}_all_vals.tif")
         args = tifffile.imread(base / f"{mesh}_all_vals_max_project.tif")
