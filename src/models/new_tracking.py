@@ -8,6 +8,7 @@ from sklearn.cluster import DBSCAN
 from scipy.interpolate import interp1d
 from scipy.spatial import KDTree
 from scipy.optimize import linear_sum_assignment
+from collections import defaultdict
 
 
 ### rules:
@@ -178,7 +179,10 @@ def interpolate_points(spots_df: pd.DataFrame, graph: DiGraph):
             new_spot["FRAME"] = t
             new_spot[["POSITION_Z", "POSITION_X", "POSITION_Y"]] = interp(t)
             new_spot["graph_key"] = new_spot_idx
+            new_spot["ID"] = new_spot_idx
             new_spot["interpolated"] = True
+
+            # print(new_edge_source_idx, new_spot_idx)
 
             # adds a new edge to the graph (starts with source_spot
             graph.add_edge(new_edge_source_idx, new_spot_idx, track_id=edge["track_id"], time=1)
@@ -326,6 +330,8 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
 
     # use graph key universally as an index
     spots_df = pd.DataFrame(spots_collect, index=[c["graph_key"] for c in spots_collect])
+    spots_df["ID"] = spots_df["ID"].astype(int)
+
     assert np.all(spots_df.index == spots_df["ID"])
 
     # iterate through track elements to construct graph and assign trackid
@@ -357,19 +363,10 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
 
         spots_df.loc[this_track_spots, "linear_track_id"] = track_id
 
-    print(f"track id 0 corresponds to {np.sum(spots_df['linear_track_id'].isna())} edgeless spots")
+    spots_df["linear_track_id"] = spots_df["linear_track_id"].fillna(-1)
+    spots_df["linear_track_id"] = spots_df["linear_track_id"].astype(int)
 
-    # # remove positional outliers
-    # print("starting positional outlier detection")
-    # spots_df["position_cluster"] = detect_positional_outliers(spots_df)
-    # print("completed positional outlier detection")
-    #
-    # largest_cluster_index = spots_df.groupby("position_cluster").size().idxmax()
-    # largest_cluster = spots_df.groupby("position_cluster").size().index[largest_cluster_index]
-    # is_outlier = spots_df["position_cluster"] != largest_cluster
-    #
-    # graph.remove_nodes_from(spots_df[is_outlier]["graph_key"])
-    # spots_df = spots_df[~is_outlier]
+    print(f"track id -1 corresponds to {np.sum(spots_df['linear_track_id'].isna())} edgeless spots")
 
     return spots_df, graph
 
@@ -439,6 +436,9 @@ def get_sister_distances(spots_df: pd.DataFrame, graph: DiGraph, tracklets: pd.D
             # print(f"in degree of spot b{spot_b} is {graph.in_degree(spot_b)}")
             # print(f"{tracklets.loc[tracklet_b, 'start_time']} < {div_start} < {div_end} < {tracklets.loc[tracklet_b, 'end_time']}")
             # print(spot_b in spots_df[spots_df["linear_track_id"] == tracklet_b]["graph_key"])
+
+            if graph.out_degree(spot_b) != 1:
+                continue
 
             spot_b_next = list(graph.successors(spot_b))[0]
             spot_b_prev = list(graph.predecessors(spot_b))[0]
@@ -537,24 +537,36 @@ def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
 
     spots_df["track_id"] = spots_df.index.map(new_track_idx)
 
-    graph = graph.copy()
+    broken_graph = graph.copy()
 
     # breaks the graph into tracklets, by removing edges after divisions
-    parents = [node for node in graph.nodes if graph.out_degree(node) == 2]
+    parents = [node for node in broken_graph.nodes if broken_graph.out_degree(node) == 2]
 
     for parent in parents:
-        children = list(graph.successors(parent))
+        children = list(broken_graph.successors(parent))
         for child in children:
-            graph.remove_edge(parent, child)
+            broken_graph.remove_edge(parent, child)
 
     # assigns tracklet index based on new graph
     new_tracklet_idx = {idx: 0 for idx in spots_df.index}
 
-    for tracklet, c in enumerate(connected_components(graph.to_undirected()), start=1):
+    for tracklet, c in enumerate(connected_components(broken_graph.to_undirected()), start=1):
         for spot in c:
             new_tracklet_idx[spot] = tracklet
 
+    parent_map = defaultdict(lambda: -1, {child: parent for parent, child in graph.edges()})
+    n_children = defaultdict(lambda: -1, {spot: graph.out_degree(spot) for spot in graph.nodes()})
+    n_parents = defaultdict(lambda: -1, {spot: graph.in_degree(spot) for spot in graph.nodes()})
+
+    spots_df = spots_df.sort_values(by=["FRAME"])
+
     print(f"number of tracklets detected: {tracklet}")
     spots_df["tracklet_id"] = spots_df.index.map(new_tracklet_idx)
+    spots_df["parent_id"] = spots_df["graph_key"].map(parent_map)
+    spots_df["n_children"] = spots_df["graph_key"].map(n_children)
+    spots_df["n_parents"] = spots_df["graph_key"].map(n_parents)
+    print(spots_df.groupby("tracklet_id")["parent_id"].first(skipna=False))
+    spots_df["tracklet_first_parent_id"] = spots_df["tracklet_id"].map(spots_df.groupby("tracklet_id")["parent_id"].first(skipna=False))
+    spots_df["tracklet_parent_tracklet"] = spots_df["tracklet_first_parent_id"].map(new_tracklet_idx)
 
     return spots_df

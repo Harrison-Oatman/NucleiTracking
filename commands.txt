@@ -36,4 +36,4 @@ python scripts/3dplot.py
 
 
 
-python -m cellpose --image_path "D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_02_06\small_all_vals2.tif" --pretrained_model uv_006 --diameter 11.54 --use_gpu --save_tif --verbose --norm_percentile 1 99 --no_npy
+python -m cellpose --image_path "D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_04_14\large_all_vals2.tif" --pretrained_model uv_006 --diameter 11.54 --use_gpu --save_tif --verbose --norm_percentile 1 99 --no_npy
