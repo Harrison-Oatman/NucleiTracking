@@ -33,7 +33,7 @@ run_cellpose_file() {
     gpu=$(( (jobnum - 1) % 3 ))
     echo "Processing $file on GPU $gpu"
     echo "$SAVEDIR"
-    python -m cellpose --image_path "$file" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --z_axis 1 --channel_axis 0
+    python -m cellpose --image_path "$file" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --z_axis 0 --channel_axis 3 --stitch_threshold 0.99
 }
 export -f run_cellpose_file
 
@@ -48,7 +48,7 @@ run_cellpose_dir() {
     dir=$1
     jobnum=$2
     gpu=$(( (jobnum - 1) % 3 ))
-    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --stitch_threshold 0.25 --z_axis 1 --channel_axis 0
+    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --z_axis 0 --channel_axis 3 --stitch_threshold 0.25
 }
 export -f run_cellpose_dir
 
