@@ -73,7 +73,7 @@ def main():
         l_stack = np.stack(locs, 0)
         maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
-        tifffile.imwrite(outpath / f"{name}_all_vals.tif", v_stack)
+        tifffile.imwrite(outpath / f"{name}_all_vals.tif", np.expand_dims(v_stack, -1))
         tifffile.imwrite(outpath / f"{name}_all_locs.tif", l_stack)
         tifffile.imwrite(outpath / f"{name}_all_vals_max_project.tif", maxp_stack)
 
@@ -159,7 +159,7 @@ def process_file(j, infile, args, outpath):
         full_val = np.clip((full_val - np.quantile(mapping_arr, 0.5)) / (np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)), 0, 1)
         full_val = np.array(np.rint(full_val * 255), dtype=np.uint8)
 
-        tifffile.imwrite(full_val_outfile, full_val)
+        tifffile.imwrite(full_val_outfile, np.expand_dims(full_val, -1))
 
         if j == 0:
             full_loc_outfile = outpath / obj_name / "locs" / f"{obj_name}_full_locs.tif"
