@@ -27,21 +27,19 @@ mkdir -p "$SAVEDIR"
 # GPU list (0,1,2)
 GPUS=(0 1 2)
 
-run_cellpose_file() {
-    file=$1
+run_cellpose_dir_2d() {
+    dir=$1
     jobnum=$2
     gpu=$(( (jobnum - 1) % 3 ))
-    echo "Processing $file on GPU $gpu"
-    echo "$SAVEDIR"
-    python -m cellpose --image_path "$file" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --channel_axis 3
+    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR/cellpose" --gpu $gpu --channel_axis 2
 }
-export -f run_cellpose_file
+export -f run_cellpose_dir_2d
 
 # Run on *loc.tif in top-level directory
 echo "Running cellpose.py on top-level *vals.tif files..."
-find "$TOPDIR" -maxdepth 1 -type f -name '*vals.tif' | \
-    parallel --jobs 3 --ungroup --env run_cellpose_file --env SAVEDIR \
-    'run_cellpose_file {} {#}'
+find "$TOPDIR" -mindepth 2 -maxdepth 2 -type f -name '*vals.tif' | \
+    parallel --jobs 3 --ungroup --env run_cellpose_dir_2d --env SAVEDIR \
+    'run_cellpose_dir_2d {} {#}'
 
 
 run_cellpose_dir() {
