@@ -77,6 +77,13 @@ def main():
         tifffile.imwrite(outpath / f"{name}_all_locs.tif", l_stack)
         tifffile.imwrite(outpath / f"{name}_all_vals_max_project.tif", maxp_stack)
 
+        cellpose_stack_path = outpath / name / "cellpose_stack"
+        cellpose_stack_path.mkdir(exist_ok=True, parents=True)
+
+        for i, val_frame in vals:
+            impath = cellpose_stack_path / f"{name}_{i:04d}.tif"
+            tifffile.imwrite(impath, np.expand_dims(val_frame, -1))
+
 
 def process_cli() -> argparse.Namespace:
     argparser = argparse.ArgumentParser(description="script to process raw data from tif")
