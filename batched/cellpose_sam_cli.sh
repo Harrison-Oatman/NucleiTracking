@@ -36,8 +36,8 @@ run_cellpose_dir_2d() {
 export -f run_cellpose_dir_2d
 
 # Run on *loc.tif in top-level directory
-echo "Running cellpose.py on top-level *vals.tif files..."
-find "$TOPDIR" -mindepth 2 -maxdepth 2 -type f -name 'cellpose_stack' | \
+echo "Running cellpose.py on cellpose_stack folders"
+find "$TOPDIR" -mindepth 2 -maxdepth 2 -name 'cellpose_stack' -type d | \
     parallel --jobs 3 --ungroup --env run_cellpose_dir_2d --env SAVEDIR \
     'run_cellpose_dir_2d {} {#}'
 
