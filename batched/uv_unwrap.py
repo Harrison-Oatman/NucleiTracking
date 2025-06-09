@@ -80,7 +80,7 @@ def main():
         cellpose_stack_path = outpath / name / "cellpose_stack"
         cellpose_stack_path.mkdir(exist_ok=True, parents=True)
 
-        for i, val_frame in vals:
+        for i, val_frame in enumerate(vals):
             impath = cellpose_stack_path / f"{name}_{i:04d}.tif"
             tifffile.imwrite(impath, np.expand_dims(val_frame, -1))
 
@@ -178,4 +178,7 @@ def process_file(j, infile, args, outpath):
 
 
 if __name__ == "__main__":
+    start = time.time()
     main()
+
+    print(f"Script finished in {time.time() - start:.2f} seconds")
