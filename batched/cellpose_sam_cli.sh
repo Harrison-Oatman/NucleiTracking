@@ -31,7 +31,7 @@ run_cellpose_dir_2d() {
     dir=$1
     jobnum=$2
     gpu=$(( (jobnum - 1) % 3 ))
-    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR/cellpose" --gpu $gpu --channel_axis 2
+    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "${dir}/cellpose" --gpu $gpu --channel_axis 2
 }
 export -f run_cellpose_dir_2d
 
@@ -42,18 +42,18 @@ find "$TOPDIR" -mindepth 2 -maxdepth 2 -name 'cellpose_stack' -type d | \
     'run_cellpose_dir_2d {} {#}'
 
 
-run_cellpose_dir() {
-    dir=$1
-    jobnum=$2
-    gpu=$(( (jobnum - 1) % 3 ))
-    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --z_axis 0 --channel_axis 3 --stitch_threshold 0.25
-}
-export -f run_cellpose_dir
-
-# Run in each subdirectory of TOPDIR
-echo "Running cellpose.py in subdirectories..."
-find "$TOPDIR" -mindepth 2 -maxdepth 2 -name 'vals' -type d | \
-    parallel --jobs 3 --ungroup --env run_cellpose_dir --env SAVEDIR \
-    'run_cellpose_dir {} {#}'
+#run_cellpose_dir() {
+#    dir=$1
+#    jobnum=$2
+#    gpu=$(( (jobnum - 1) % 3 ))
+#    python -m cellpose --dir "$dir" --pretrained_model uv_sam_001 --use_gpu --save_tif --verbose --norm_percentile 0 100 --no_npy --savedir "$SAVEDIR" --gpu $gpu --z_axis 0 --channel_axis 3 --stitch_threshold 0.25
+#}
+#export -f run_cellpose_dir
+#
+## Run in each subdirectory of TOPDIR
+#echo "Running cellpose.py in subdirectories..."
+#find "$TOPDIR" -mindepth 2 -maxdepth 2 -name 'vals' -type d | \
+#    parallel --jobs 3 --ungroup --env run_cellpose_dir --env SAVEDIR \
+#    'run_cellpose_dir {} {#}'
 
 
