@@ -183,6 +183,7 @@ def process_file(j, infile, args, outpath):
             tifffile.imwrite(full_loc_outfile, full_locs)
 
             area_distortion = diffgeo.get_area_distortion_in_UV(mesh_uv, uv_grid_steps, map_back)
+            area_distortion = np.array(area_distortion, dtype=np.float32)
             area_distortion_outfile = outpath / f"{obj_name}_area_distortion.tif"
             tifffile.imwrite(area_distortion_outfile, area_distortion, imagej=True)
 
