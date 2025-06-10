@@ -27,7 +27,7 @@ def find_centroids_3d(masks, locs):
     return props
 
 
-def find_centroids_2d(masks, locs, vals, argv):
+def find_centroids_2d(masks, locs, vals, area, argv):
 
     centroids = []
 
@@ -40,7 +40,8 @@ def find_centroids_2d(masks, locs, vals, argv):
         intensity_img = np.concatenate([locslice,
                                         np.expand_dims(dis, -1),
                                         valslice,
-                                        np.expand_dims(argslice, -1)], axis=-1)
+                                        np.expand_dims(argslice, -1),
+                                        np.expand_dims(area, -1)], axis=-1)
 
         props = regionprops_table(maskslice, intensity_img, properties=("centroid", "intensity_mean", "area"))
         props = pd.DataFrame(props)
@@ -48,16 +49,19 @@ def find_centroids_2d(masks, locs, vals, argv):
         mapper = {
             "centroid-0": "uv_v",
             "centroid-1": "uv_u",
+            "area": "uv_area",
             "intensity_mean-0": "px_z",
             "intensity_mean-1": "px_y",
             "intensity_mean-2": "px_x",
             "intensity_mean-3": "uv_distance_from_edge",
             "intensity_mean-4": "intensity_mean",
             "intensity_mean-5": "uv_z",
+            "intensity_mean-6": "area_distortion",
         }
 
         props = props.rename(columns=mapper)
         props["timepoint"] = t
+        props["px_area"] = props["uv_area"] * props["area_distortion"]
 
         centroids.append(props)
 
@@ -209,11 +213,12 @@ def main():
         print(masks.shape)
 
         locs = tifffile.imread(base / f"{mesh_name}_all_locs.tif")
-        vals = tifffile.imread(base / f"{mesh_name}_all_vals.tif")
+        vals = tifffile.imread(base / f"{mesh_name}_all_rawvals.tif")
         args = tifffile.imread(base / f"{mesh_name}_all_vals_max_project.tif")
+        area = tifffile.imread(base / f"{mesh_name}_area_distortion.tif")
         print(vals.shape)
 
-        props = find_centroids_2d(masks, locs, vals, args)
+        props = find_centroids_2d(masks, locs, vals, area, args)
         props["mesh_name"] = mesh_name
         all_props.append(props)
 
