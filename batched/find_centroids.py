@@ -158,6 +158,62 @@ def main():
         all_props_df.to_csv(output_file, index=False)
         print(f"Centroids saved to {output_file}")
 
+    # alternative approach, look for 2d stack as slices in subfolder
+    meshes = set()
+
+    locs_pattern = re.compile(r"(?P<mesh_name>.+)_full_locs.tif")
+
+    for locs_file in base.glob("full_locs.tif"):
+
+        match = locs_pattern.match(locs_file.stem)
+        if match:
+            mesh_name = match.group("mesh_name")
+            meshes.add(mesh_name)
+
+    all_props = []
+
+    for mesh_name in meshes:
+
+        cellpose_stack_path = base / mesh_name / "cellpose_stack" / "cellpose"
+        if not cellpose_stack_path.exists():
+            print(f"Cellpose stack path does not exist for {mesh_name}: {cellpose_stack_path}")
+            continue
+
+        masks_files = list(cellpose_stack_path.glob("*.tif"))
+
+        if not masks_files:
+            print(f"No masks files found for {mesh_name} in {cellpose_stack_path}")
+            continue
+
+        masks_files.sort()  # Ensure files are sorted by timepoint
+        all_mask_slices = []
+
+        for masks_file in masks_files:
+            masks = tifffile.imread(masks_file)
+            all_mask_slices.append(masks)
+
+        if not all_mask_slices:
+            print(f"No valid masks found for {mesh_name} in {cellpose_stack_path}")
+            continue
+
+        masks = np.stack(all_mask_slices, axis=0)  # Shape: (timepoints, height, width)
+
+        locs = tifffile.imread(base / f"{mesh_name}_all_locs.tif")
+        vals = tifffile.imread(base / f"{mesh_name}_all_vals.tif")
+        args = tifffile.imread(base / f"{mesh_name}_all_vals_max_project.tif")
+
+        props = find_centroids_2d(masks, locs, vals, args)
+        props["mesh_name"] = mesh_name
+        all_props.append(props)
+
+    if all_props:
+        all_props_df = pd.concat(all_props, ignore_index=True)
+        output_file = base / "centroids_2d_from_stack.csv"
+        all_props_df.to_csv(output_file, index=False)
+        print(f"Centroids from stack saved to {output_file}")
+
+
+
 
 def process_cli():
     import argparse
