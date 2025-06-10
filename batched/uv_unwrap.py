@@ -65,15 +65,19 @@ def main():
 
         this_vals_and_locs = [v[name] for v in vals_and_locs if name in v]
 
-        vals = [v for v, _, _ in this_vals_and_locs]
-        locs = [l for _, l, _ in this_vals_and_locs]
-        maxp = [m for _, _, m in this_vals_and_locs]
+        rawval = [v for v, _, _, _ in this_vals_and_locs]
+        vals = [v for _, v, _, _ in this_vals_and_locs]
+        locs = [l for _, _, l, _ in this_vals_and_locs]
+        maxp = [m for _, _, _, m in this_vals_and_locs]
 
-
+        r_stack = np.stack(rawval, 0)
         v_stack = np.stack(vals, 0)
         l_stack = np.stack(locs, 0)
         maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
+        print(f"rawval shape: {r_stack.shape}, vals shape: {v_stack.shape}, locs shape: {l_stack.shape}, maxp shape: {maxp_stack.shape}")
+
+        tifffile.imwrite(outpath / f"{name}_all_rawvals.tif", np.expand_dims(r_stack, -1))
         tifffile.imwrite(outpath / f"{name}_all_vals.tif", np.expand_dims(v_stack, -1))
         tifffile.imwrite(outpath / f"{name}_all_locs.tif", l_stack)
         tifffile.imwrite(outpath / f"{name}_all_vals_max_project.tif", maxp_stack)
@@ -150,19 +154,19 @@ def process_file(j, infile, args, outpath):
                                                                                projected_normals, normal_offsets,
                                                                                resolution)
 
-        val = np.max(projected_data[0], axis=0)
+        rawval = np.max(projected_data[0], axis=0)
         argmax = np.argmax(projected_data[0], axis=0)
 
         loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
 
-        val = np.clip((val - np.quantile(mapping_arr, 0.5)) / (
+        val = np.clip((rawval - np.quantile(mapping_arr, 0.5)) / (
                     np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)), 0, 1)
         val = np.array(np.rint(val * 255), dtype=np.uint8)
 
         # convert to 16-bit float
         loc = loc.astype(np.float16)
 
-        out[obj_name] = (val, loc, argmax)
+        out[obj_name] = (rawval, val, loc, argmax)
 
         full_val_outfile = outpath / obj_name / "vals" / f"{obj_name}_{infile.stem}_unwrap.tif"
 
