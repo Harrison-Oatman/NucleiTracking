@@ -39,7 +39,7 @@ def find_centroids_2d(masks, locs, vals, argv):
 
         intensity_img = np.concatenate([locslice,
                                         np.expand_dims(dis, -1),
-                                        np.expand_dims(valslice, -1),
+                                        valslice,
                                         np.expand_dims(argslice, -1)], axis=-1)
 
         props = regionprops_table(maskslice, intensity_img, properties=("centroid", "intensity_mean", "area"))
@@ -211,6 +211,7 @@ def main():
         locs = tifffile.imread(base / f"{mesh_name}_all_locs.tif")
         vals = tifffile.imread(base / f"{mesh_name}_all_vals.tif")
         args = tifffile.imread(base / f"{mesh_name}_all_vals_max_project.tif")
+        print(vals.shape)
 
         props = find_centroids_2d(masks, locs, vals, args)
         props["mesh_name"] = mesh_name
