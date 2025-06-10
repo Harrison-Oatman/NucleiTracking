@@ -9,6 +9,7 @@ from pathlib import Path
 import natsort
 from blender_tissue_cartography import mesh as tcmesh
 from blender_tissue_cartography import interpolation as tcinterp
+from blender_tissue_cartography import diffgeo
 
 
 def main():
@@ -79,6 +80,7 @@ def main():
 
         cellpose_stack_path = outpath / name / "cellpose_stack"
         cellpose_stack_path.mkdir(exist_ok=True, parents=True)
+        (cellpose_stack_path / "cellpose").mkdir(exist_ok=True)
 
         for i, val_frame in enumerate(vals):
             impath = cellpose_stack_path / f"{name}_{i:04d}.tif"
@@ -132,6 +134,7 @@ def process_file(j, infile, args, outpath):
         use_fallback = "auto"
         resolution = (args.resolution[0], args.resolution[1], args.resolution[2])
 
+        # this doesn't need to be recomputed every time, but it doesn't cost too much
         projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.vertices, domain="per-vertex",
                                                                             uv_grid_steps=uv_grid_steps,
                                                                             distance_threshold=0.0000001,
@@ -141,6 +144,7 @@ def process_file(j, infile, args, outpath):
                                                                         uv_grid_steps=uv_grid_steps,
                                                                         distance_threshold=0.0000001,
                                                                         map_back=map_back, use_fallback=use_fallback)
+
         projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(image,
                                                                                projected_coordinates,
                                                                                projected_normals, normal_offsets,
@@ -173,6 +177,10 @@ def process_file(j, infile, args, outpath):
             full_locs = np.expand_dims(projected_coordinates, 0) + np.expand_dims(projected_normals, 0) * np.expand_dims(np.array(normal_offsets), [1, 2, 3])
 
             tifffile.imwrite(full_loc_outfile, full_locs)
+
+            area_distortion = diffgeo.get_area_distortion_in_UV(mesh_uv, uv_grid_steps, map_back)
+            area_distortion_outfile = outpath / f"{obj_name}_area_distortion.tif"
+            tifffile.imwrite(area_distortion_outfile, area_distortion)
 
     return out
 
