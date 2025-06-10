@@ -31,7 +31,9 @@ def find_centroids_2d(masks, locs, vals, argv):
 
     centroids = []
 
+    print(locs.shape)
     dis = distance_transform_edt(1 - np.isnan(locs[0, ..., 0]))
+    print(dis.shape)
 
     for t, (maskslice, locslice, valslice, argslice) in tqdm(enumerate(zip(masks, locs, vals, argv))):
 
@@ -204,6 +206,7 @@ def main():
             continue
 
         masks = np.stack(all_mask_slices, axis=0)  # Shape: (timepoints, height, width)
+        print(masks.shape)
 
         locs = tifffile.imread(base / f"{mesh_name}_all_locs.tif")
         vals = tifffile.imread(base / f"{mesh_name}_all_vals.tif")
