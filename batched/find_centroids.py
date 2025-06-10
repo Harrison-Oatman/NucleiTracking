@@ -166,9 +166,9 @@ def main():
     # alternative approach, look for 2d stack as slices in subfolder
     meshes = set()
 
-    locs_pattern = re.compile(r"(?P<mesh_name>.+)_full_locs.tif")
+    locs_pattern = re.compile(r"(?P<mesh_name>.+)_all_locs.tif")
 
-    for locs_file in base.glob("*full_locs.tif"):
+    for locs_file in base.glob("*.tif"):
 
         match = locs_pattern.match(locs_file.stem)
         if match:
