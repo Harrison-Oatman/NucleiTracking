@@ -26,7 +26,7 @@ def main():
     inpath = args.input_dir
     inpath = Path(inpath)
     if not inpath.exists():  # try relative path
-        inpath = Path().cwd() / args.input
+        inpath.mkdir(parents=True)
 
     assert inpath.exists(), f"directory not found: {inpath}"
     print(f"processing files in {inpath}")
