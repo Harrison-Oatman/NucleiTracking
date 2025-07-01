@@ -17,7 +17,7 @@ source ~/miniforge3/etc/profile.d/conda.sh
 export PATH="$HOME/bin:$PATH"
 conda activate cellpose_sam
 
-TOPDIR="/mnt/home/hoatman/ceph/lightsheet_trk_20250319a/raw_image/downscaled/uv_unwrap/"
+TOPDIR="/mnt/home/hoatman/ceph/lightsheet_trk_20250319b/raw_image/downscaled/uv_unwrap/"
 SAVEDIR="${TOPDIR}/cellpose_output"
 
 export SAVEDIR
