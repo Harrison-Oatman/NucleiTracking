@@ -11,4 +11,4 @@ source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cellpose
 
 # Run your Python script with job_number and total_jobs
-python NucleiTracking/batched/find_centroids.py --base "/mnt/home/hoatman/ceph/lightsheet_20250704/raw_image/downscaled/uv_unwrap/"
+python NucleiTracking/batched/find_centroids.py --base "/mnt/home/hoatman/ceph/lightsheet_20250705/raw_image/downscaled/uv_unwrap/"
