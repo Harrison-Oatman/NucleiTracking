@@ -1,15 +1,18 @@
-import tifffile
-import numpy as np
-from skimage.measure import regionprops_table
-from pathlib import Path
-from tqdm import tqdm
 import re
+from pathlib import Path
+
+import numpy as np
 import pandas as pd
+import tifffile
 from scipy.ndimage import distance_transform_edt
+from skimage.measure import regionprops_table
+from tqdm import tqdm
+
 
 def find_centroids_3d(masks, locs):
-
-    props = regionprops_table(masks, locs, properties=("centroid", "intensity_mean", "area"))
+    props = regionprops_table(
+        masks, locs, properties=("centroid", "intensity_mean", "area")
+    )
     props = pd.DataFrame(props)
 
     mapper = {
@@ -28,22 +31,29 @@ def find_centroids_3d(masks, locs):
 
 
 def find_centroids_2d(masks, locs, vals, area, argv):
-
     centroids = []
 
     print(locs.shape)
     dis = distance_transform_edt(1 - np.isnan(locs[0, ..., 0]))
     print(dis.shape)
 
-    for t, (maskslice, locslice, valslice, argslice) in tqdm(enumerate(zip(masks, locs, vals, argv))):
+    for t, (maskslice, locslice, valslice, argslice) in tqdm(
+        enumerate(zip(masks, locs, vals, argv, strict=False))
+    ):
+        intensity_img = np.concatenate(
+            [
+                locslice,
+                np.expand_dims(dis, -1),
+                valslice,
+                np.expand_dims(argslice, -1),
+                np.expand_dims(area, -1),
+            ],
+            axis=-1,
+        )
 
-        intensity_img = np.concatenate([locslice,
-                                        np.expand_dims(dis, -1),
-                                        valslice,
-                                        np.expand_dims(argslice, -1),
-                                        np.expand_dims(area, -1)], axis=-1)
-
-        props = regionprops_table(maskslice, intensity_img, properties=("centroid", "intensity_mean", "area"))
+        props = regionprops_table(
+            maskslice, intensity_img, properties=("centroid", "intensity_mean", "area")
+        )
         props = pd.DataFrame(props)
 
         mapper = {
@@ -175,7 +185,6 @@ def main():
     locs_pattern = re.compile(r"(?P<mesh_name>.+)_all_locs")
 
     for locs_file in base.glob("*.tif"):
-
         print(locs_file)
 
         match = locs_pattern.match(locs_file.stem)
@@ -186,10 +195,11 @@ def main():
     all_props = []
 
     for mesh_name in meshes:
-
         cellpose_stack_path = base / mesh_name / "cellpose_stack" / "cellpose"
         if not cellpose_stack_path.exists():
-            print(f"Cellpose stack path does not exist for {mesh_name}: {cellpose_stack_path}")
+            print(
+                f"Cellpose stack path does not exist for {mesh_name}: {cellpose_stack_path}"
+            )
             continue
 
         masks_files = list(cellpose_stack_path.glob("*.tif"))
@@ -229,17 +239,18 @@ def main():
         print(f"Centroids from stack saved to {output_file}")
 
 
-
-
 def process_cli():
     import argparse
 
     parser = argparse.ArgumentParser(description="Find centroids in masks and locs.")
-    parser.add_argument("--base", type=str, required=True, help="Base uv_unwrap directory.")
+    parser.add_argument(
+        "--base", type=str, required=True, help="Base uv_unwrap directory."
+    )
 
     args = parser.parse_args()
 
     return args
+
 
 if __name__ == "__main__":
     main()

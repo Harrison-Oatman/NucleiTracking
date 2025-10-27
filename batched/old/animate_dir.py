@@ -1,13 +1,14 @@
 import argparse
 import logging
-import tifffile
-import numpy as np
-from tqdm import tqdm
-import time
 import multiprocessing
+import time
 from pathlib import Path
-import natsort
+
 import napari
+import natsort
+import numpy as np
+import tifffile
+from tqdm import tqdm
 
 
 def main():
@@ -28,9 +29,13 @@ def main():
         tmpdir.mkdir()
 
     outfile = args.output
-    outfile = Path(outfile) if outfile is not None else inpath.parent / f"animation_{time.time()}.tif"
+    outfile = (
+        Path(outfile)
+        if outfile is not None
+        else inpath.parent / f"animation_{time.time()}.tif"
+    )
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
 
     nprocs = args.nprocs
@@ -48,8 +53,12 @@ def main():
 
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            this_angles = angles[i * args.frames_per_file: (i + 1) * args.frames_per_file]
-            job = pool.apply_async(process_file, (i, str(file.absolute()), this_angles, args, tmpdir))
+            this_angles = angles[
+                i * args.frames_per_file : (i + 1) * args.frames_per_file
+            ]
+            job = pool.apply_async(
+                process_file, (i, str(file.absolute()), this_angles, args, tmpdir)
+            )
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -64,10 +73,20 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("napari keywords")
     argparser.add_argument("-r", "--renderer", default="mip")
@@ -93,8 +112,16 @@ def process_file(iter, infile, angles, args, tmpdir):
         fpf = len(angles)
         i = iter * fpf + i
 
-        viewer = napari.view_image(volume, name="volume", rendering=args.renderer, scale=(1, 1, 1), translate=(0, 0, 0),
-                         rotate=(angle, 0, 90), ndisplay=3, contrast_limits=(0, 1000))
+        viewer = napari.view_image(
+            volume,
+            name="volume",
+            rendering=args.renderer,
+            scale=(1, 1, 1),
+            translate=(0, 0, 0),
+            rotate=(angle, 0, 90),
+            ndisplay=3,
+            contrast_limits=(0, 1000),
+        )
         out = viewer.screenshot()
         tifffile.imwrite(tmpdir / f"{i:04d}.tif", out)
         viewer.close()

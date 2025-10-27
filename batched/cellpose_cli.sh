@@ -57,5 +57,3 @@ echo "Running cellpose.py in subdirectories..."
 find "$TOPDIR" -mindepth 2 -maxdepth 2 -name 'vals' -type d | \
     parallel --jobs 3 --ungroup --env run_cellpose_dir --env SAVEDIR \
     'run_cellpose_dir {} {#}'
-
-

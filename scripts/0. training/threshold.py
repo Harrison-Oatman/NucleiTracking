@@ -1,27 +1,35 @@
+import json
+import os
+from pathlib import Path
+from typing import NamedTuple
+
 import napari
 import numpy as np
-from skimage.filters import difference_of_gaussians, rank
-from skimage.feature import peak_local_max
-from scipy.signal import convolve
+
 # from skimage.morphology import sp
 import pandas as pd
-import os
 import tifffile as tiff
-from qtpy.QtWidgets import QWidget, QVBoxLayout, QLineEdit, QLabel, QPushButton, QSlider, QComboBox
 from natsort import natsorted
-import json
-from typing import NamedTuple
-from pathlib import Path
+from qtpy.QtWidgets import (
+    QComboBox,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QSlider,
+    QVBoxLayout,
+    QWidget,
+)
+from scipy.signal import convolve
+from skimage.feature import peak_local_max
+from skimage.filters import difference_of_gaussians, rank
 from tqdm import tqdm
 
 
 class JsonStoreValue:
-
     def __init__(self, jsonpath):
-
         self.jsonpath = jsonpath
 
-        with open(jsonpath, 'r') as f:
+        with open(jsonpath) as f:
             self.json = json.load(f)
 
     def save(self):
@@ -43,7 +51,9 @@ class JsonStoreValue:
 
 
 class ThresholdSlider(QWidget):
-    def __init__(self, update_callback, store_value_callback, dogs, mins, min_val=0, max_val=150):
+    def __init__(
+        self, update_callback, store_value_callback, dogs, mins, min_val=0, max_val=150
+    ):
         super().__init__()
         self.update_callback = update_callback
         self.store_value_callback = store_value_callback
@@ -137,14 +147,18 @@ class ThresholdSlider(QWidget):
 
 
 def load_tiffs_and_peaks(directory, peak_directory):
-    tiff_files = natsorted([f for f in os.listdir(directory) if f.endswith('.tiff') or f.endswith('.tif')])
-    csv_files = natsorted([f for f in os.listdir(peak_directory) if f.endswith('.csv')])
+    tiff_files = natsorted(
+        [f for f in os.listdir(directory) if f.endswith(".tiff") or f.endswith(".tif")]
+    )
+    csv_files = natsorted([f for f in os.listdir(peak_directory) if f.endswith(".csv")])
 
     k = 5
     tiff_files = [f for i, f in enumerate(tiff_files) if i % k == 0]
     csv_files = [f for i, f in enumerate(csv_files) if i % k == 0]
 
-    images = [tiff.imread(os.path.join(directory, f)) for i, f in tqdm(enumerate(tiff_files))]
+    images = [
+        tiff.imread(os.path.join(directory, f)) for i, f in tqdm(enumerate(tiff_files))
+    ]
     images = [np.swapaxes(image, 0, 2) for image in images]
     peak_data = [pd.read_csv(os.path.join(peak_directory, f)) for f in csv_files]
 
@@ -154,12 +168,12 @@ def load_tiffs_and_peaks(directory, peak_directory):
 
 
 class GuiProcess:
-
     def __init__(self, directory, peak_directory, jsonpath):
-
         self.directory = directory
         self.current_frame = 0
-        self.image_data, self.peak_data_list, self.stems = load_tiffs_and_peaks(directory, peak_directory)
+        self.image_data, self.peak_data_list, self.stems = load_tiffs_and_peaks(
+            directory, peak_directory
+        )
 
         jsonstorevalue = JsonStoreValue(jsonpath)
         self.store_value_callback = jsonstorevalue.update
@@ -172,8 +186,10 @@ class GuiProcess:
         self.image_layer = None
         self.scatter_layer = None
 
-        self.slider = ThresholdSlider(self.update_peaks, self.store_preset, self.dogs, self.minds)
-        self.viewer.window.add_dock_widget(self.slider, area='right')
+        self.slider = ThresholdSlider(
+            self.update_peaks, self.store_preset, self.dogs, self.minds
+        )
+        self.viewer.window.add_dock_widget(self.slider, area="right")
 
         # Bind keys for manual frame navigation
         self.viewer.bind_key("Right", lambda viewer: self.change_frame(1))
@@ -191,7 +207,9 @@ class GuiProcess:
     def store_preset(self):
         value, local_value, dog, mind = self.slider.get_status()
         stem = self.stems[self.current_frame]
-        self.store_value_callback(stem, {"value": value, "local_value": local_value, "dog": dog, "mind": mind})
+        self.store_value_callback(
+            stem, {"value": value, "local_value": local_value, "dog": dog, "mind": mind}
+        )
 
     def update_frame(self):
         """Manually update frame display"""
@@ -213,29 +231,33 @@ class GuiProcess:
         # self.scatter_layer.data = self.peak_data_list[self.current_frame][['x', 'y', 'z']].values
 
     def run(self):
-
-        self.image_layer = self.viewer.add_image(self.image_data[0], name='3D Image')
-        self.scatter_layer = self.viewer.add_points(self.peak_data_list[0][['x', 'y', 'z']].values, shading="spherical",
-                                                    name='Peaks', size=10, face_color='red', out_of_slice_display=True)
+        self.image_layer = self.viewer.add_image(self.image_data[0], name="3D Image")
+        self.scatter_layer = self.viewer.add_points(
+            self.peak_data_list[0][["x", "y", "z"]].values,
+            shading="spherical",
+            name="Peaks",
+            size=10,
+            face_color="red",
+            out_of_slice_display=True,
+        )
 
         self.update_frame()
 
         napari.run()
 
     def update_peaks(self, value, local_value, dog_preset, min_distance_preset):
-
         data = self.peak_data_list[self.current_frame]
         print(len(data))
         data = data[data["dog"] == dog_preset]
         print(len(data))
         data = data[data["min-distance"].astype(str) == min_distance_preset]
         print(len(data))
-        data = data[data['val'] > value]
+        data = data[data["val"] > value]
         print(len(data))
-        data = data[data['local'] > local_value]
+        data = data[data["local"] > local_value]
         print(len(data))
 
-        filtered_peaks = data[['x', 'y', 'z']].values
+        filtered_peaks = data[["x", "y", "z"]].values
         self.scatter_layer.data = filtered_peaks
         self.scatter_layer.name = f"{len(data)} peaks"
 
@@ -247,16 +269,19 @@ class GuiProcess:
 
 
 def main():
-
-    directory = r"D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_02_06\recon\test2"
+    directory = (
+        r"D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_02_06\recon\test2"
+    )
     jsonpath = r"D:\Tracking\NucleiTracking\data\interim\lightsheet\2025_02_06\recon\test2\presets.json"
 
-    directory = r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/"
+    directory = (
+        r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/"
+    )
     peak_directory = r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/dog_sweep"
     jsonpath = r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/presets.json"
 
     if not Path(jsonpath).exists():
-        with open(jsonpath, 'w') as f:
+        with open(jsonpath, "w") as f:
             json.dump({}, f)
 
     gui_process = GuiProcess(directory, peak_directory, jsonpath)

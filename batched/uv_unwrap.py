@@ -1,20 +1,21 @@
 import argparse
 import logging
-import tifffile
-import numpy as np
-from tqdm import tqdm
-import time
 import multiprocessing
+import time
 from pathlib import Path
+
 import natsort
-from blender_tissue_cartography import mesh as tcmesh
-from blender_tissue_cartography import interpolation as tcinterp
+import numpy as np
+import tifffile
 from blender_tissue_cartography import diffgeo
+from blender_tissue_cartography import interpolation as tcinterp
+from blender_tissue_cartography import mesh as tcmesh
+from tqdm import tqdm
 
 
 def main():
     try:
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method("spawn")
     except RuntimeError:
         pass
 
@@ -43,7 +44,7 @@ def main():
         (outpath / name / "vals").mkdir(exist_ok=True, parents=True)
         (outpath / name / "locs").mkdir(exist_ok=True, parents=True)
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
 
     nprocs = args.nprocs
@@ -55,7 +56,9 @@ def main():
 
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, str(file.absolute()), args, str(outpath.absolute())))
+            job = pool.apply_async(
+                process_file, (i, str(file.absolute()), args, str(outpath.absolute()))
+            )
             jobs.append(job)
 
         vals_and_locs = [job.get() for job in jobs]
@@ -75,9 +78,13 @@ def main():
         l_stack = np.stack(locs, 0)
         maxp_stack = np.array(np.array(np.stack(maxp, 0), dtype=float), dtype=np.uint8)
 
-        print(f"rawval shape: {r_stack.shape}, vals shape: {v_stack.shape}, locs shape: {l_stack.shape}, maxp shape: {maxp_stack.shape}")
+        print(
+            f"rawval shape: {r_stack.shape}, vals shape: {v_stack.shape}, locs shape: {l_stack.shape}, maxp shape: {maxp_stack.shape}"
+        )
 
-        tifffile.imwrite(outpath / f"{name}_all_rawvals.tif", np.expand_dims(r_stack, -1))
+        tifffile.imwrite(
+            outpath / f"{name}_all_rawvals.tif", np.expand_dims(r_stack, -1)
+        )
         tifffile.imwrite(outpath / f"{name}_all_vals.tif", np.expand_dims(v_stack, -1))
         tifffile.imwrite(outpath / f"{name}_all_locs.tif", l_stack)
         tifffile.imwrite(outpath / f"{name}_all_vals_max_project.tif", maxp_stack)
@@ -92,11 +99,23 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
-    argparser.add_argument("--obj", help="path to blender object file directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
+    argparser.add_argument(
+        "--obj", help="path to blender object file directory", default=None
+    )
 
     argparser.add_argument_group("box")
     argparser.add_argument("--range", nargs=3, type=int, default=[0, 0, 1])
@@ -125,7 +144,6 @@ def process_file(j, infile, args, outpath):
     out = {}
 
     for obj_fp in Path(args.obj).glob("*.obj"):
-
         obj_name = obj_fp.stem
 
         mesh_uv = tcmesh.ObjMesh.read_obj(str(obj_fp))
@@ -139,28 +157,42 @@ def process_file(j, infile, args, outpath):
         resolution = (args.resolution[0], args.resolution[1], args.resolution[2])
 
         # this doesn't need to be recomputed every time, but it doesn't cost too much
-        projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.vertices, domain="per-vertex",
-                                                                            uv_grid_steps=uv_grid_steps,
-                                                                            distance_threshold=0.0000001,
-                                                                            map_back=map_back,
-                                                                            use_fallback=use_fallback)
-        projected_normals = tcinterp.interpolate_per_vertex_field_to_UV(mesh, mesh.normals, domain="per-vertex",
-                                                                        uv_grid_steps=uv_grid_steps,
-                                                                        distance_threshold=0.0000001,
-                                                                        map_back=map_back, use_fallback=use_fallback)
+        projected_coordinates = tcinterp.interpolate_per_vertex_field_to_UV(
+            mesh,
+            mesh.vertices,
+            domain="per-vertex",
+            uv_grid_steps=uv_grid_steps,
+            distance_threshold=0.0000001,
+            map_back=map_back,
+            use_fallback=use_fallback,
+        )
+        projected_normals = tcinterp.interpolate_per_vertex_field_to_UV(
+            mesh,
+            mesh.normals,
+            domain="per-vertex",
+            uv_grid_steps=uv_grid_steps,
+            distance_threshold=0.0000001,
+            map_back=map_back,
+            use_fallback=use_fallback,
+        )
 
-        projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(image,
-                                                                               projected_coordinates,
-                                                                               projected_normals, normal_offsets,
-                                                                               resolution)
+        projected_data = tcinterp.interpolate_volumetric_data_to_uv_multilayer(
+            image, projected_coordinates, projected_normals, normal_offsets, resolution
+        )
 
         rawval = np.max(projected_data[0], axis=0)
         argmax = np.argmax(projected_data[0], axis=0)
 
-        loc = projected_coordinates + projected_normals * np.expand_dims(normal_offsets[argmax], -1)
+        loc = projected_coordinates + projected_normals * np.expand_dims(
+            normal_offsets[argmax], -1
+        )
 
-        val = np.clip((rawval - np.quantile(mapping_arr, 0.5)) / (
-                    np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)), 0, 1)
+        val = np.clip(
+            (rawval - np.quantile(mapping_arr, 0.5))
+            / (np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)),
+            0,
+            1,
+        )
         val = np.array(np.rint(val * 255), dtype=np.uint8)
 
         # convert to 16-bit float
@@ -168,21 +200,32 @@ def process_file(j, infile, args, outpath):
 
         out[obj_name] = (rawval, val, loc, argmax)
 
-        full_val_outfile = outpath / obj_name / "vals" / f"{obj_name}_{infile.stem}_unwrap.tif"
+        full_val_outfile = (
+            outpath / obj_name / "vals" / f"{obj_name}_{infile.stem}_unwrap.tif"
+        )
 
         full_val = projected_data[0]
-        full_val = np.clip((full_val - np.quantile(mapping_arr, 0.5)) / (np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)), 0, 1)
+        full_val = np.clip(
+            (full_val - np.quantile(mapping_arr, 0.5))
+            / (np.quantile(mapping_arr, 0.9995) - np.quantile(mapping_arr, 0.5)),
+            0,
+            1,
+        )
         full_val = np.array(np.rint(full_val * 255), dtype=np.uint8)
 
         tifffile.imwrite(full_val_outfile, np.expand_dims(full_val, -1))
 
         if j == 0:
             full_loc_outfile = outpath / obj_name / "locs" / f"{obj_name}_full_locs.tif"
-            full_locs = np.expand_dims(projected_coordinates, 0) + np.expand_dims(projected_normals, 0) * np.expand_dims(np.array(normal_offsets), [1, 2, 3])
+            full_locs = np.expand_dims(projected_coordinates, 0) + np.expand_dims(
+                projected_normals, 0
+            ) * np.expand_dims(np.array(normal_offsets), [1, 2, 3])
 
             tifffile.imwrite(full_loc_outfile, full_locs)
 
-            area_distortion = diffgeo.get_area_distortion_in_UV(mesh_uv, uv_grid_steps, map_back)
+            area_distortion = diffgeo.get_area_distortion_in_UV(
+                mesh_uv, uv_grid_steps, map_back
+            )
             area_distortion = area_distortion / (uv_grid_steps**2)
             area_distortion = np.array(area_distortion, dtype=np.float32)
             area_distortion_outfile = outpath / f"{obj_name}_area_distortion.tif"

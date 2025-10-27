@@ -1,27 +1,28 @@
-from natsort import natsorted
-import os
-import pandas as pd
 import json
+import os
 from pathlib import Path
+
+import pandas as pd
+from natsort import natsorted
 from tqdm import tqdm
 
 
 def load_peaks(directory):
-    csv_files = natsorted([f for f in os.listdir(directory) if f.endswith('.csv')])
-    peak_data = [pd.read_csv(os.path.join(directory, f)) for f in tqdm(csv_files, "loading csv")]
+    csv_files = natsorted([f for f in os.listdir(directory) if f.endswith(".csv")])
+    peak_data = [
+        pd.read_csv(os.path.join(directory, f)) for f in tqdm(csv_files, "loading csv")
+    ]
     stems = [Path(f).stem for f in csv_files]
 
     return peak_data, stems
 
 
 class JsonController:
-
     def __init__(self, path):
         self.path = path
         self.json = load_json(path)
 
     def get(self, key, allkeys):
-
         nsortedjsonkeys = natsorted(self.json.keys())
         nsorted = natsorted(allkeys)
 
@@ -37,16 +38,15 @@ class JsonController:
         if i == 0:
             return self.json[nsortedjsonkeys[0]]
         else:
-            return self.json[nsortedjsonkeys[i-1]]
+            return self.json[nsortedjsonkeys[i - 1]]
 
 
 def load_json(fp):
-    with open(fp, 'r') as f:
+    with open(fp) as f:
         return json.load(f)
 
 
 def main():
-
     peak_directory = r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/dog_sweep"
     json_fp = r"/mnt/home/hoatman/ceph/lightsheet_20250206/raw_image/downscaled/recon/presets.json"
 
@@ -66,8 +66,8 @@ def main():
 
         data = data[data["dog"] == dog_preset]
         data = data[data["min-distance"].astype(str) == min_distance_preset]
-        data = data[data['val'] > value]
-        data = data[data['local'] > local_value]
+        data = data[data["val"] > value]
+        data = data[data["local"] > local_value]
 
         dfs.append(data)
 

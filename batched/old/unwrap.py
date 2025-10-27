@@ -1,16 +1,17 @@
-import numpy as np
-import tifffile
 import argparse
-import logging
-from pathlib import Path
-from collections import Counter
-from circle_fit import taubinSVD
-from sklearn.cluster import DBSCAN
-import pandas as pd
 import json
-from tqdm import tqdm
+import logging
+from collections import Counter
+from pathlib import Path
+
 import h5py
+import numpy as np
+import pandas as pd
+import tifffile
+from circle_fit import taubinSVD
 from natsort import natsorted
+from sklearn.cluster import DBSCAN
+from tqdm import tqdm
 
 
 def find_circle(pts):
@@ -27,21 +28,32 @@ def find_circle(pts):
 
 
 def moving_median(vals, k):
-    return np.array([np.median(vals[max(0, i - k):min(len(vals), i + k)]) for i in range(len(vals))])
+    return np.array(
+        [
+            np.median(vals[max(0, i - k) : min(len(vals), i + k)])
+            for i in range(len(vals))
+        ]
+    )
 
 
 def make_circles(files):
-
     all_x, all_z, all_r = [], [], []
 
     for file in files:
         with h5py.File(file, "r") as f:
             data = f["exported_data"][:]
-        data = data/np.max(data)
+        data = data / np.max(data)
 
-        circs = [find_circle(np.argwhere(data[:, i, :, 0] > 0.5)) for i in range(data.shape[1])]
+        circs = [
+            find_circle(np.argwhere(data[:, i, :, 0] > 0.5))
+            for i in range(data.shape[1])
+        ]
         circs = np.array(circs)
-        xs, zs, rs = moving_median(circs[:, 0], 10), moving_median(circs[:, 1], 10), moving_median(circs[:, 2], 10)
+        xs, zs, rs = (
+            moving_median(circs[:, 0], 10),
+            moving_median(circs[:, 1], 10),
+            moving_median(circs[:, 2], 10),
+        )
 
         all_x.append(xs)
         all_z.append(zs)
@@ -76,7 +88,7 @@ def main():
     output_dir = Path(args.output)
     assert output_dir.exists(), f"directory not found: {output_dir}"
 
-    files = sorted([f for f in input_dir.iterdir() if f.suffix == '.h5'])
+    files = sorted([f for f in input_dir.iterdir() if f.suffix == ".h5"])
 
     sample_files = np.random.choice(files, 10)
     xs, zs, rs = make_circles(sample_files)
@@ -92,8 +104,13 @@ def main():
     for file in tqdm(files):
         with h5py.File(file, "r") as f:
             data = f["exported_data"][:]
-        data = data/np.max(data)
-        unwrapped = np.array([cirlce_meanip(data[:, i, :, 0], xs[i], zs[i], rs[i]) for i in range(data.shape[1])])
+        data = data / np.max(data)
+        unwrapped = np.array(
+            [
+                cirlce_meanip(data[:, i, :, 0], xs[i], zs[i], rs[i])
+                for i in range(data.shape[1])
+            ]
+        )
 
         out.append(unwrapped)
 
@@ -101,8 +118,12 @@ def main():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="script to unwrap embryos as cylinders")
-    parser.add_argument("-i", "--input_dir", help="process all tifs in directory", default=None)
+    parser = argparse.ArgumentParser(
+        description="script to unwrap embryos as cylinders"
+    )
+    parser.add_argument(
+        "-i", "--input_dir", help="process all tifs in directory", default=None
+    )
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
     parser.add_argument("--nprocs", help="number of processes", default=None, type=int)

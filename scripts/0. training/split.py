@@ -1,8 +1,9 @@
-import numpy as np
-import tifffile
 import argparse
 import logging
 from pathlib import Path
+
+import numpy as np
+import tifffile
 from skimage.io import imread
 
 """
@@ -26,7 +27,13 @@ def main():
     argparser.add_argument("--out_ext", dest="out_ext", default="tif")
 
     argparser.add_argument("-l", "--level", dest="level", default="INFO")
-    argparser.add_argument("-p", "--pattern", dest="pattern", default=r"{}_{:03d}.tif", help="output pattern")
+    argparser.add_argument(
+        "-p",
+        "--pattern",
+        dest="pattern",
+        default=r"{}_{:03d}.tif",
+        help="output pattern",
+    )
 
     args = argparser.parse_args()
 

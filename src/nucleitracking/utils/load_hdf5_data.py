@@ -1,11 +1,13 @@
 from pathlib import Path
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
-from h5py import File
 from typing import Optional
 
-def load_spots_data(spots_directory: Path, included: Optional[list] = None):
+import numpy as np
+import pandas as pd
+from h5py import File
+from tqdm import tqdm
+
+
+def load_spots_data(spots_directory: Path, included: list | None = None):
     spots_dfs = []
     metadatas = []
     stems = []
@@ -63,8 +65,12 @@ def load_embryo(spots_path, source_index=None):
         """
     cols = ["x", "y", "z", "AP", "theta"]
     for col in cols:
-        spots_df[f"d{col}"] = (spots_df[col] - spots_df["parent_id"].map(spots_df[col])) / metadata["seconds_per_frame"]
-    spots_df["dtot"] = np.sqrt(spots_df["dx"] ** 2 + spots_df["dy"] ** 2 + spots_df["dz"] ** 2)
+        spots_df[f"d{col}"] = (
+            spots_df[col] - spots_df["parent_id"].map(spots_df[col])
+        ) / metadata["seconds_per_frame"]
+    spots_df["dtot"] = np.sqrt(
+        spots_df["dx"] ** 2 + spots_df["dy"] ** 2 + spots_df["dz"] ** 2
+    )
     spots_df["dAP_abs"] = spots_df["dAP"].abs()
 
     return spots_path.stem, metadata, spots_df

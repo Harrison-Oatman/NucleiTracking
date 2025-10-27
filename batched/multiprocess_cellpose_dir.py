@@ -1,14 +1,15 @@
 import argparse
 import logging
-import tifffile
+import multiprocessing
+import time
+from pathlib import Path
+
+import natsort
 import numpy as np
+import tifffile
+import torch
 from cellpose import models
 from tqdm import tqdm
-import torch
-import time
-import multiprocessing
-from pathlib import Path
-import natsort
 
 """
 --Tasks--
@@ -19,7 +20,7 @@ import natsort
 
 def main():
     try:
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method("spawn")
     except RuntimeError:
         pass
 
@@ -37,10 +38,14 @@ def main():
     print(f"processing files in {inpath}")
 
     outpath = args.output
-    outpath = Path(outpath) if outpath is not None else inpath.parent / f"cellpose_results_{time.time()}"
+    outpath = (
+        Path(outpath)
+        if outpath is not None
+        else inpath.parent / f"cellpose_results_{time.time()}"
+    )
     outpath.mkdir(exist_ok=True)
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
     np.random.shuffle(files)
 
@@ -53,7 +58,9 @@ def main():
 
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, str(file.absolute()), args, str(outpath.absolute())))
+            job = pool.apply_async(
+                process_file, (i, str(file.absolute()), args, str(outpath.absolute()))
+            )
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -62,16 +69,26 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("cellpose keywords")
     argparser.add_argument("--use_gpu", action="store_true")
     argparser.add_argument("--do_3d", action="store_true")
     argparser.add_argument("--model", default="nuclei")
-    argparser.add_argument("--diam", default=9., type=float)
+    argparser.add_argument("--diam", default=9.0, type=float)
     argparser.add_argument("-c", "--cellprob_thresh", default=0.0, type=float)
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
@@ -139,28 +156,31 @@ def process_file(iter, infile, args, outpath):
 
     torch.cuda.set_device(iter % torch.cuda.device_count())
     device = torch.device(f"cuda:{torch.cuda.current_device()}")
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30., device=device)
+    model = models.CellposeModel(
+        gpu=args.use_gpu, model_type=args.model, diam_mean=30.0, device=device
+    )
 
     logging.info(f"processing image {infile.stem} on gpu {torch.cuda.current_device()}")
 
     print([image.shape for image in raw])
 
-    results = model.eval([image for image in raw],
-                         channels=[0, 0],
-                         channel_axis=3,
-                         z_axis=2,
-                         batch_size=args.batch_size,
-                         diameter=args.diam,
-                         cellprob_threshold=args.cellprob_thresh,
-                         flow_threshold=args.flow_thresh,
-                         flow3D_smooth=args.flow3D_smooth,
-                         do_3D=args.do_3d,
-                         stitch_threshold=args.stitch_threshold,
-                         normalize={"percentile": [1, args.top_percentile]})
+    results = model.eval(
+        [image for image in raw],
+        channels=[0, 0],
+        channel_axis=3,
+        z_axis=2,
+        batch_size=args.batch_size,
+        diameter=args.diam,
+        cellprob_threshold=args.cellprob_thresh,
+        flow_threshold=args.flow_thresh,
+        flow3D_smooth=args.flow3D_smooth,
+        do_3D=args.do_3d,
+        stitch_threshold=args.stitch_threshold,
+        normalize={"percentile": [1, args.top_percentile]},
+    )
 
     logging.info(f"completed {infile.stem}")
     logging.info(results)
-
 
     masks = np.array(results[0])
     probabilities = np.array(results[1][0][2])

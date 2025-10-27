@@ -1,10 +1,13 @@
-import napari
-from nucleitracking.utils.load_hdf5_data import load_embryo
 from pathlib import Path
+
+import napari
+
+from nucleitracking.utils.load_hdf5_data import load_embryo
 
 spots_path = Path(r"D:\Tracking\NucleiTracking\data\processed\lightsheet\spots")
 embryo = r"lightsheet_20250131_spots.h5"
 spots_df = load_embryo(spots_path / embryo)[2]
+
 
 def main():
     viewer = napari.Viewer()
@@ -20,6 +23,7 @@ def main():
         name="tracks",
     )
     napari.run()
+
 
 if __name__ == "__main__":
     main()

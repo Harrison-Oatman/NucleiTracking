@@ -1,31 +1,36 @@
-import logging
 import argparse
-import tifffile
-import numpy as np
-
+import logging
 from math import floor
-from skimage.measure import regionprops
 from pathlib import Path
 
+import numpy as np
+import tifffile
 from cellpose import models
+from skimage.measure import regionprops
 
 """
-This script is used to do cellpose inference on a tif movie. 
+This script is used to do cellpose inference on a tif movie.
 """
 
 
 def main():
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input", help="path to raw file to process", default=None)
-    argparser.add_argument("-id", "--input_dir", help="process all tifs in directory", default=None)
+    argparser.add_argument(
+        "-i", "--input", help="path to raw file to process", default=None
+    )
+    argparser.add_argument(
+        "-id", "--input_dir", help="process all tifs in directory", default=None
+    )
     argparser.add_argument("-o", "--output", help="results directory", default=None)
 
     argparser.add_argument_group("cellpose keywords")
     argparser.add_argument("--use_gpu", action="store_true")
     argparser.add_argument("--do_3d", action="store_true")
     argparser.add_argument("--model", default="nuclei")
-    argparser.add_argument("--diam", default=9., type=float)
+    argparser.add_argument("--diam", default=9.0, type=float)
     argparser.add_argument("-c", "--cellprob_thresh", default=0.0, type=float)
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
@@ -55,7 +60,7 @@ def main():
         input_dir = args.input_dir
         input_dir = Path(input_dir)
         assert input_dir.exists(), f"directory not found: {input_dir}"
-        files = [f for f in input_dir.iterdir() if f.suffix == '.tif']
+        files = [f for f in input_dir.iterdir() if f.suffix == ".tif"]
         outpath = Path(outpath) if outpath is not None else input_dir / "cellpose_out"
         outpath.mkdir(exist_ok=True, parents=True)
         for infile in files:
@@ -94,7 +99,9 @@ def handle_axes(raw, args):
 
 
 def cellpose_process_file(infile, outpath, args):
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30.)
+    model = models.CellposeModel(
+        gpu=args.use_gpu, model_type=args.model, diam_mean=30.0
+    )
 
     outtif = Path(outpath) / f"{infile.stem}_{args.model}masks.tif"
 
@@ -110,15 +117,17 @@ def cellpose_process_file(infile, outpath, args):
 
     logging.info(f"shape of cellpose input: {raw.shape}")
 
-    results = model.eval([v for v in raw],
-                         channels=args.channels,
-                         batch_size=args.batch_size,
-                         channel_axis=-3,
-                         diameter=args.diam,
-                         cellprob_threshold=args.cellprob_thresh,
-                         flow_threshold=args.flow_thresh,
-                         do_3D=args.do_3d,
-                         normalize={"percentile": [1, args.top_percentile]})
+    results = model.eval(
+        [v for v in raw],
+        channels=args.channels,
+        batch_size=args.batch_size,
+        channel_axis=-3,
+        diameter=args.diam,
+        cellprob_threshold=args.cellprob_thresh,
+        flow_threshold=args.flow_thresh,
+        do_3D=args.do_3d,
+        normalize={"percentile": [1, args.top_percentile]},
+    )
 
     out = np.array(results[0])
     tifffile.imwrite(outtif, out)
@@ -129,6 +138,7 @@ def cellpose_process_file(infile, outpath, args):
 
     outprob = Path(outpath) / f"{infile.stem}_{args.model}probs.tif"
     tifffile.imwrite(outprob, [results[1][k][2] for k in range(len(results[1]))])
+
 
 if __name__ == "__main__":
     main()

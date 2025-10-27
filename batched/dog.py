@@ -1,15 +1,16 @@
 import argparse
 import logging
-import tifffile
-import numpy as np
-from tqdm import tqdm
-import time
 import multiprocessing
+import time
 from pathlib import Path
+
 import natsort
-from skimage.filters import difference_of_gaussians
-from skimage.feature import peak_local_max
+import numpy as np
 import pandas as pd
+import tifffile
+from skimage.feature import peak_local_max
+from skimage.filters import difference_of_gaussians
+from tqdm import tqdm
 
 
 def main():
@@ -33,9 +34,14 @@ def main():
     hi = args.sigma_high
 
     outfile = args.output
-    outfile = Path(outfile) if outfile is not None else inpath.parent / f"dog_lo{lo}_hi{hi}_min{args.min_distance}_thresh{args.threshold_abs}.csv"
+    outfile = (
+        Path(outfile)
+        if outfile is not None
+        else inpath.parent
+        / f"dog_lo{lo}_hi{hi}_min{args.min_distance}_thresh{args.threshold_abs}.csv"
+    )
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
 
     nprocs = args.nprocs
@@ -43,10 +49,11 @@ def main():
     start = time.time()
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, str(file.absolute()), args, tmpdir))
+            job = pool.apply_async(
+                process_file, (i, str(file.absolute()), args, tmpdir)
+            )
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -63,10 +70,20 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("dog keywords")
     argparser.add_argument("--sigma_low", default=3, type=float)
@@ -87,12 +104,16 @@ def process_file(i, infile, args, tmpdir):
     volume = tifffile.imread(infile)
 
     v = difference_of_gaussians(volume, args.sigma_low, args.sigma_high)
-    pts = peak_local_max(v, min_distance=args.min_distance, threshold_abs=args.threshold_abs)
+    pts = peak_local_max(
+        v, min_distance=args.min_distance, threshold_abs=args.threshold_abs
+    )
     vals = v[pts[:, 0], pts[:, 1], pts[:, 2]]
 
     frame = [i] * pts.shape[0]
 
-    pd.DataFrame({"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals, "frame": frame}).to_csv(tmpdir / f"file_{i}.csv")
+    pd.DataFrame(
+        {"z": pts[:, 0], "y": pts[:, 1], "x": pts[:, 2], "val": vals, "frame": frame}
+    ).to_csv(tmpdir / f"file_{i}.csv")
 
 
 if __name__ == "__main__":
