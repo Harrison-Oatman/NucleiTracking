@@ -10,9 +10,11 @@ requires-python = ">=3.13"
 dependencies = [
     "blender-tissue-cartography>=0.0.5",
     "colorcet>=3.1.0",
-    "napari>=0.6.6",
+    "napari[pyqt5]>=0.6.6",
+    "networkx>=3.5",
     "pandas>=2.3.3",
     "scikit-image>=0.25.2",
+    "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
 ]
 
