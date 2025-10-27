@@ -1,0 +1,24 @@
+[project]
+name = "nucleitracking"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Harrison-Oatman", email = "46121828+Harrison-Oatman@users.noreply.github.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "blender-tissue-cartography>=0.0.5",
+    "colorcet>=3.1.0",
+    "napari>=0.6.6",
+    "pandas>=2.3.3",
+    "scikit-image>=0.25.2",
+    "seaborn>=0.13.2",
+]
+
+[project.scripts]
+nucleitracking = "nucleitracking:main"
+
+[build-system]
+requires = ["uv_build>=0.8.14,<0.9.0"]
+build-backend = "uv_build"

@@ -10,9 +10,8 @@ from tqdm import tqdm
 from tifffile import imwrite
 from json import load, dump
 
-from src.utils.process_trackmate import process_trackmate_tree
-from src.utils.tracklets import compute_edge_distance, identify_peaks
-from src.models.division_tracking import map_divisions
+from nucleitracking.utils import process_trackmate_tree
+from nucleitracking.models.division_tracking import map_divisions
 
 
 def make_lineage_tif(spots_df: pd.DataFrame, h=1360, w=1360) -> np.ndarray:

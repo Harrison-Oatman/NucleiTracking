@@ -5,14 +5,11 @@ import numpy as np
 from argparse import ArgumentParser
 from pathlib import Path
 from lxml import etree
-from skimage.draw import polygon
-from tqdm import tqdm
 from tifffile import imwrite
 from json import load, dump
 
-from src.utils.process_trackmate import process_trackmate_tree
-from src.utils.tracklets import compute_edge_distance, identify_peaks
-from src.models.division_tracking import map_divisions
+from nucleitracking.utils import process_trackmate_tree
+from nucleitracking.models.division_tracking import map_divisions
 
 
 def process_graph(spots_df: pd.DataFrame, graph: nx.DiGraph) -> pd.DataFrame:
