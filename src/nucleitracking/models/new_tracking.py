@@ -397,7 +397,8 @@ def get_sister_distances(
     sl_cost = []
 
     for spot_a, spot_a_x in tqdm(
-        zip(division_sl["start_id"], sl_start_x, strict=False), desc="computing sister distances"
+        zip(division_sl["start_id"], sl_start_x, strict=False),
+        desc="computing sister distances",
     ):
         dd, ii = tree.query(spot_a_x, 15, distance_upper_bound=max_distance)
 
@@ -493,7 +494,9 @@ def map_divisions(
     spots_df["status"] = 0
     graph = graph.copy()
 
-    for start, end in zip(interphase_dividers[:-1], interphase_dividers[1:], strict=False):
+    for start, end in zip(
+        interphase_dividers[:-1], interphase_dividers[1:], strict=False
+    ):
         print(f"mapping divisions between {start} and {end}")
         tracklets = quick_tracklets(spots_df, column="linear_track_id")
         cost_matrix, parent_map, sl_children, spots_df = get_sister_distances(
@@ -559,10 +562,9 @@ def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
 
     # assigns tracklet index based on new graph
     new_tracklet_idx = {idx: 0 for idx in spots_df.index}
+    undirected_ccs = connected_components(broken_graph.to_undirected())
 
-    for tracklet, c in enumerate(
-        connected_components(broken_graph.to_undirected()), start=1
-    ):
+    for tracklet, c in enumerate(undirected_ccs, start=1):
         for spot in c:
             new_tracklet_idx[spot] = tracklet
 
