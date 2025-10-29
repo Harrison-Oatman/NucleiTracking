@@ -16,6 +16,26 @@ dependencies = [
     "scikit-image>=0.25.2",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
+    "tables>=3.10.2",
+]
+
+[dependency-groups]
+docs = [
+    "furo>=2025.9.25",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-markdown-builder>=0.6.8",
+]
+test = [
+    "pytest>=8.4.2",
+]
+
+dev = [
+    {include-group = "docs"},
+    {include-group = "test"},
+    "pandas-stubs>=2.3.2.250926",
+    "ruff>=0.14.2",
+    "scipy-stubs>=1.16.2.4",
 ]
 
 [project.scripts]
@@ -24,3 +44,30 @@ nucleitracking = "nucleitracking:main"
 [build-system]
 requires = ["uv_build>=0.8.14,<0.9.0"]
 build-backend = "uv_build"
+
+[tool.ruff.lint]
+extend-select = [
+  "ARG",      # flake8-unused-arguments
+  "B",        # flake8-bugbear
+  "C4",       # flake8-comprehensions
+  "EM",       # flake8-errmsg
+  "EXE",      # flake8-executable
+  "FURB",     # refurb
+  "G",        # flake8-logging-format
+  "I",        # isort
+  "ICN",      # flake8-import-conventions
+  "NPY",      # NumPy specific rules
+  "PD",       # pandas-vet
+  "PGH",      # pygrep-hooks
+  "PIE",      # flake8-pie
+  "PL",       # pylint
+  "PT",       # flake8-pytest-style
+  "PTH",      # flake8-use-pathlib
+  "PYI",      # flake8-pyi
+  "RET",      # flake8-return
+  "RUF",      # Ruff-specific
+  "SIM",      # flake8-simplify
+  "T20",      # flake8-print
+  "UP",       # pyupgrade
+  "YTT",      # flake8-2020
+]
