@@ -35,60 +35,6 @@ index_map = {old_idx: new_idx for new_idx, old_idx in enumerate(spots_df.index)}
 spots_df.index = range(len(spots_df))
 spots_df["parent_id"] = spots_df["parent_id"].map(index_map)
 
-
-def calculate_tracks(df: pd.DataFrame):
-    df = df.sort_values(by="frame")
-    df["track_id2"] = df.index
-    for _frame, group in df.groupby("frame"):
-        group_subset = group[group["n_parents"] == 1]
-        df.loc[group_subset.index, "track_id2"] = (
-            group_subset["parent_id"].map(df["track_id2"]).fillna(-1).astype(int)
-        )
-
-    return df
-
-
-pal = cc.glasbey
-
-
-class Action(ABC):
-
-    @abstractmethod
-    def execute(self, df: pd.DataFrame):
-        pass
-
-
-class LinkNucleiAction(Action):
-    def __init__(self, parent_id: int, child_id: int):
-        self.parent_id = parent_id
-        self.child_id = child_id
-
-    def execute(self, df: pd.DataFrame):
-        # Update the DataFrame
-        df.loc[self.child_id, "parent_id"] = self.parent_id
-        df.loc[self.parent_id, "n_children"] += 1
-        df.loc[self.child_id, "n_parents"] = 1
-
-
-class ActionHistory:
-    def __init__(self):
-        self._actions: list[Action] = []
-
-    def push(self, action: Action):
-        self._actions.append(action)
-
-    def load(self, path: Path | None):
-        with Path.open(path, "rb") as f:
-            self._actions = pickle.load(f)
-
-    def save(self, path: Path):
-        with Path.open(path, "wb") as f:
-            pickle.dump(self._actions, f)
-
-    def get_actions(self):
-        return self._actions
-
-
 class Status(Enum):
     OTHER = 0
     END = 1
@@ -111,42 +57,33 @@ status_colors_rgba = {
     for k, v in status_colors.items()
 }
 
+def calculate_tracks(df: pd.DataFrame):
+    df = df.sort_values(by="frame")
+    df["track_id2"] = df.index
+    for _frame, group in df.groupby("frame"):
+        group_subset = group[group["n_parents"] == 1]
+        df.loc[group_subset.index, "track_id2"] = (
+            group_subset["parent_id"].map(df["track_id2"]).fillna(-1).astype(int)
+        )
 
-def assign_status(df):
-    terminal = df["n_children"] == 0
-    initial = df["n_parents"] == 0
+    return df
 
-    parent_n_children = 2
 
-    is_parent = df["n_children"] == parent_n_children
-    is_child = df["parent_id"].map(is_parent)
-    with pd.option_context("future.no_silent_downcasting", True):
-        is_child = is_child.fillna(False)
-
-    status = pd.Series(Status.OTHER, index=df.index)
-    status[is_parent] = Status.PARENT
-    status[is_child] = Status.CHILD
-    status[initial] = Status.START
-    status[terminal] = Status.END
-
-    return status
-
+pal = cc.glasbey
 
 @dataclass
 class DataSpace:
     df: pd.DataFrame
     status: pd.Series = field(init=False)
-    action_history: ActionHistory = field(init=False)
     points: np.ndarray = field(init=False)
     points_center: np.ndarray = field(init=False)
     marked: dict[int, Status] = field(default_factory=dict)
     unmarked: set = field(default_factory=set)
 
     def __post_init__(self):
-        self.action_history: ActionHistory = ActionHistory()
         self.status = assign_status(self.df)
         self.df["status"] = self.status
-        calculate_tracks(self.df)
+        self.df = calculate_tracks(self.df)
 
 
         self.points = self.df[["frame", "z", "y", "x"]].to_numpy()
@@ -175,12 +112,82 @@ class DataSpace:
         self.status = self.df["status"]
 
 
+class Action(ABC):
+
+    @abstractmethod
+    def execute(self, df: pd.DataFrame):
+        pass
+
+
+class LinkNucleiAction(Action):
+    def __init__(self, parent_id: int, child_id: int):
+        self.parent_id = parent_id
+        self.child_id = child_id
+
+    def execute(self, data: DataSpace):
+        df = data.df
+
+        df.loc[self.child_id, "parent_id"] = self.parent_id
+        df.loc[self.parent_id, "n_children"] += 1
+        df.loc[self.child_id, "n_parents"] = 1
+
+class MarkNucleusAction(Action):
+
+    def __init__(self, nuc_id: int, status: Status):
+        self.nuc_id = nuc_id
+        self.status = status
+
+    def execute(self, data: DataSpace):
+        data.mark_nucleus(self.nuc_id, self.status)
+
+
+class ActionHistory:
+    def __init__(self):
+        self._actions: list[Action] = []
+
+    def push(self, action: Action):
+        self._actions.append(action)
+
+    def load(self, path: Path | None):
+        with Path.open(path, "rb") as f:
+            self._actions = pickle.load(f)
+
+    def save(self, path: Path):
+        with Path.open(path, "wb") as f:
+            pickle.dump(self._actions, f)
+
+    def get_actions(self):
+        return self._actions
+
+
+
+def assign_status(df):
+    terminal = df["n_children"] == 0
+    initial = df["n_parents"] == 0
+
+    parent_n_children = 2
+
+    is_parent = df["n_children"] == parent_n_children
+    is_child = df["parent_id"].map(is_parent)
+    with pd.option_context("future.no_silent_downcasting", True):
+        is_child = is_child.fillna(False)
+
+    status = pd.Series(Status.OTHER, index=df.index)
+    status[is_parent] = Status.PARENT
+    status[is_child] = Status.CHILD
+    status[initial] = Status.START
+    status[terminal] = Status.END
+
+    return status
+
+
 class Controller:
     def __init__(self, viewer, df):
         self.viewer = viewer
         self.data = DataSpace(df)
         self.points_layer = self._add_points_layer()
         self.current_view = "track"
+        self.action_history: ActionHistory = ActionHistory()
 
     def _add_points_layer(self):
         points = self.data.points
@@ -242,9 +249,11 @@ class Controller:
         self.current_view = "track"
 
     def do_action(self, action: Action):
-        action.execute(self.data.df)
-        self.data.action_history.push(action)
+        action.execute(self.data)
+        self.action_history.push(action)
 
+
+    def refresh_status(self):
         self.data.status = assign_status(self.data.df)
         self.data.df["status"] = self.data.status
 
@@ -303,6 +312,8 @@ def main():
         latest_corrections = correction_files[-1]
         controller.load_corrections(latest_corrections)
 
+    controller.refresh_status()
+
 
     data = controller.data
     points = data.points
@@ -328,6 +339,8 @@ def main():
 
             action = LinkNucleiAction(parent_id, child_id)
             controller.do_action(action)
+
+        controller.refresh_status()
 
     @points_layer.bind_key("q")
     def switch_view(_layer):
@@ -355,13 +368,36 @@ def main():
         layer.border_color[nuc] = [0.0, 1.0, 0.0, 1.0]
         layer.refresh()
 
-    napari.run()
-
     @points_layer.bind_key("shift+e")
     def export_dataframe(_layer):
         export_df = controller.export_dataframe()
         export_path = spots_path.parent / f"{embryo[:-9]}_corrected_spots.h5"
         export_df.to_hdf(export_path, key="df")
+
+    @points_layer.bind_key("t")
+    def mark_as_terminal(layer):
+        df = data.df
+
+        for nuc in layer.selected_data:
+            if df.loc[nuc, "n_children"] != 0:
+                print("one or more selected nuclei are not terminal")
+                return
+
+        for nuc in layer.selected_data:
+            action = MarkNucleusAction(nuc, Status.END)
+
+            controller.do_action(action)
+
+    @points_layer.bind_key("h")
+    def mark_as_other(layer):
+
+        for nuc in layer.selected_data:
+            action = MarkNucleusAction(nuc, Status.OTHER)
+
+            controller.do_action(action)
+
+
+    napari.run()
 
 
 if __name__ == "__main__":
