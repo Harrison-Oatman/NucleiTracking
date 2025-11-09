@@ -176,7 +176,7 @@ def main():
 
                     for f, t in zip(filepaths, sorted(time_points), strict=False):
                         jobs.append(
-                            pool.apply_async(reconstruct, (f, output_dir, sd, ch, t))
+                            pool.apply_async(reconstruct, (f, output_dir, sd, ch, t + args.time_init))
                         )
 
         failed = []
@@ -203,6 +203,7 @@ def parse_args():
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
     parser.add_argument("--nprocs", help="number of processes", default=None, type=int)
+    parser.add_argument("--time_init", help="initial timepoint", default=0, type=int)
 
     args = parser.parse_args()
     return args
