@@ -11,6 +11,7 @@ dependencies = [
     "blender-tissue-cartography>=0.0.5",
     "colorcet>=3.1.0",
     "libigl>=2.6.1",
+    "lxml>=6.0.2",
     "napari[pyqt5]>=0.6.6",
     "natsort>=8.4.0",
     "networkx>=3.5",
@@ -39,6 +40,8 @@ dev = [
     "pandas-stubs>=2.3.2.250926",
     "ruff>=0.14.2",
     "scipy-stubs>=1.16.2.4",
+    "pre-commit",
+    "nbstripout"
 ]
 
 [project.scripts]
