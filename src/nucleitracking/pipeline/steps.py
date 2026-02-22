@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import networkx as nx
 import pandas as pd
 
 from nucleitracking.models.lap_tracking import run_lap_tracking
@@ -13,6 +14,12 @@ from nucleitracking.pipeline.config import PipelineConfig
 
 
 def run_tracking(dataset: Path, config: PipelineConfig):
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    out_file = out_dir / "lap_tracked_spots.csv"
+    if out_file.exists():
+        print(f"[{dataset.name}] LAP Tracking (Skipped: {out_file.name} exists)")
+        return
+
     print(f"[{dataset.name}] Running LAP Tracking...")
 
     # Load 3D centroids generated from the local post-processing Reconstruction step
@@ -25,6 +32,21 @@ def run_tracking(dataset: Path, config: PipelineConfig):
         return
 
     centroids = pd.read_csv(centroids_path)
+
+    # Filter frames based on user configuration
+    if config.local_post.tracking.start_frame > 0:
+        print(
+            f"  Filtering out frames before {config.local_post.tracking.start_frame}..."
+        )
+        centroids = centroids[
+            centroids["FRAME"] >= config.local_post.tracking.start_frame
+        ]
+
+    if config.local_post.tracking.skip_frames:
+        print(f"  Skipping frames: {config.local_post.tracking.skip_frames}...")
+        centroids = centroids[
+            ~centroids["FRAME"].isin(config.local_post.tracking.skip_frames)
+        ]
 
     # Run the new Python LAP tracker instead of TrackMate
     spots_df, _graph = run_lap_tracking(
@@ -40,9 +62,14 @@ def run_tracking(dataset: Path, config: PipelineConfig):
 
 
 def run_division_mapping(dataset: Path, config: PipelineConfig):
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    out_file = out_dir / "final_lineages.csv"
+    if out_file.exists():
+        print(f"[{dataset.name}] Division Mapping (Skipped: {out_file.name} exists)")
+        return
+
     print(f"[{dataset.name}] Running Division Mapping...")
 
-    out_dir = dataset / f"tracking_{config.param_set_name}"
     spots_path = out_dir / "lap_tracked_spots.csv"
 
     if not spots_path.exists():
@@ -51,14 +78,21 @@ def run_division_mapping(dataset: Path, config: PipelineConfig):
 
     spots_df = pd.read_csv(spots_path)
 
-    # Needs the graph to proceed. In a full implementation, we'd serialize/deserialize the networkx graph.
-    # For this script we will reconstruct it from lap_tracking again or save it as a pickle.
-    # We will assume we can recreate the graph or we simply call lap_tracking again for simplicity in this wrapper
-    spots_df, graph = run_lap_tracking(
-        spots_df,
-        max_distance=config.local_post.tracking.search_radius,
-        max_gap_frames=config.local_post.tracking.max_gap_frames,
-    )
+    graph = nx.DiGraph()
+
+    track_id_most_recent = {}
+
+    for frame, spots in spots_df.groupby("FRAME"):
+        parents = spots["linear_track_id"].map(track_id_most_recent)
+
+        for parent, child in zip(parents, spots[["graph_key"]]):
+            if pd.isna(parent):
+                continue
+            graph.add_edge(parent, child, time=1)
+
+        track_id_most_recent.update(
+            dict(spots[["linear_track_id", "graph_key"]].values)
+        )
 
     print("  Interpolating points...")
     interpolated_spots_df, interpolated_graph = interpolate_points(spots_df, graph)

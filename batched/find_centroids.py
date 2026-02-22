@@ -8,26 +8,26 @@ from scipy.ndimage import distance_transform_edt
 from skimage.measure import regionprops_table
 from tqdm import tqdm
 
-
-def find_centroids_3d(masks, locs):
-    props = regionprops_table(
-        masks, locs, properties=("centroid", "intensity_mean", "area")
-    )
-    props = pd.DataFrame(props)
-
-    mapper = {
-        "centroid-0": "uv_z",
-        "centroid-1": "uv_v",
-        "centroid-2": "uv_u",
-        "intensity_mean-0": "px_z",
-        "intensity_mean-1": "px_y",
-        "intensity_mean-2": "px_x",
-        "intensity_mean-3": "uv_distance_from_edge",
-    }
-
-    props = props.rename(columns=mapper)
-
-    return props
+# def find_centroids_3d(masks, locs):
+#     props = regionprops_table(
+#         masks, locs, properties=("centroid", "intensity_mean", "intensity_std", "area")
+#     )
+#     props = pd.DataFrame(props)
+#
+#     mapper = {
+#         "centroid-0": "uv_z",
+#         "centroid-1": "uv_v",
+#         "centroid-2": "uv_u",
+#         "intensity_mean-0": "px_z",
+#         "intensity_mean-1": "px_y",
+#         "intensity_mean-2": "px_x",
+#         "intensity_mean-3": "uv_distance_from_edge",
+#         "intensity_std-4": "intensity_std",
+#     }
+#
+#     props = props.rename(columns=mapper)
+#
+#     return props
 
 
 def find_centroids_2d(masks, locs, vals, area, argv):
@@ -52,7 +52,9 @@ def find_centroids_2d(masks, locs, vals, area, argv):
         )
 
         props = regionprops_table(
-            maskslice, intensity_img, properties=("centroid", "intensity_mean", "area")
+            maskslice,
+            intensity_img,
+            properties=("centroid", "intensity_mean", "intensity_std", "area"),
         )
         props = pd.DataFrame(props)
 
@@ -67,9 +69,20 @@ def find_centroids_2d(masks, locs, vals, area, argv):
             "intensity_mean-4": "intensity_mean",
             "intensity_mean-5": "uv_z",
             "intensity_mean-6": "area_distortion",
+            "intensity_std-4": "intensity_std",
         }
 
         props = props.rename(columns=mapper)
+        props = props.drop(
+            columns=[
+                "intensity_std-0",
+                "intensity_std-1",
+                "intensity_std-2",
+                "intensity_std-3",
+                "intensity_std-5",
+                "intensity_std-6",
+            ]
+        )
         props["timepoint"] = t
         props["px_area"] = props["uv_area"] * props["area_distortion"]
 
@@ -83,7 +96,7 @@ def main():
 
     base = Path(args.base)
 
-    masks_path = base / "cellpose_output"
+    base / "cellpose_output"
 
     """
     2D centroids
