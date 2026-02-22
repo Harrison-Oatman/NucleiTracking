@@ -9,33 +9,45 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "blender-tissue-cartography>=0.0.5",
-    "colorcet>=3.1.0",
-    "libigl>=2.6.1",
-    "lxml>=6.0.2",
-    "napari[pyqt5]>=0.6.6",
     "natsort>=8.4.0",
     "networkx>=3.5",
     "pandas>=2.3.3",
     "pydantic>=2.12.4",
     "pydantic-settings>=2.13.1",
-    "pymeshlab>=2025.7",
     "pyyaml>=6.0.3",
-    "scikit-image>=0.25.2",
-    "scikit-learn>=1.7.2",
-    "seaborn>=0.13.2",
     "tables>=3.10.2",
+    "scipy",
+    "tifffile",
+    "tqdm",
 ]
 
 [project.optional-dependencies]
+local = [
+    "colorcet>=3.1.0",
+    "libigl>=2.6.1",
+    "lxml>=6.0.2",
+    "napari[pyqt5]>=0.6.6",
+    "pymeshlab",
+    "scikit-image>=0.25.2",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+]
+remote = [
+    "cellpose",
+]
+dev = [
+    "nucleitracking[remote]",
+    "nucleitracking[local]; sys_platform != 'linux'",
+]
 cu121 = [
     "torch>=2.5.1",
     "torchvision==0.20.1+cu121",
-    "cellpose"
+    "nucleitracking[remote]"
 ]
 cu128 = [
     "torch>=2.9.1",
     "torchvision==0.24.1+cu128",
-    "cellpose"
+    "nucleitracking[remote]"
 ]
 
 [tool.uv]
@@ -45,6 +57,10 @@ conflicts = [
     { extra = "cu128" },
   ],
 ]
+#
+#required-environments = [
+#    "sys_platform == 'manylinux_2_28' and platform_machine == 'x86_64'"
+#]
 
 [tool.uv.sources]
 torch = [
