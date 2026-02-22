@@ -26,23 +26,6 @@ class LocalPreConfig(BaseModel):
     uv_unwrap: UVUnwrapParams = Field(default_factory=UVUnwrapParams)
 
 
-class Project2DParams(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    # e.g., depth of max projection
-
-
-class CellposeSAMParams(BaseModel):
-    model_config = ConfigDict(extra="allow")
-    model_type: str = "cyto3"
-    diameter: float = 15.0
-    use_gpu: bool = True
-
-
-class ClusterConfig(BaseModel):
-    project_2d: Project2DParams = Field(default_factory=Project2DParams)
-    cellpose_sam: CellposeSAMParams = Field(default_factory=CellposeSAMParams)
-
-
 class Reconstruct3DParams(BaseModel):
     model_config = ConfigDict(extra="allow")
     max_distance: float = 5.0
@@ -52,6 +35,8 @@ class TrackingParams(BaseModel):
     model_config = ConfigDict(extra="allow")
     search_radius: float = 5.0
     max_gap_frames: int = 3
+    start_frame: int = 0
+    skip_frames: list[int] = Field(default_factory=list)
     motion_model: str = "nearest_neighbor"
 
 
@@ -76,7 +61,6 @@ class PipelineConfig(BaseModel):
     param_set_name: str = "default"
 
     local_pre: LocalPreConfig = Field(default_factory=LocalPreConfig)
-    cluster: ClusterConfig = Field(default_factory=ClusterConfig)
     local_post: LocalPostConfig = Field(default_factory=LocalPostConfig)
 
     @classmethod

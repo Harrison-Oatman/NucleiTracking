@@ -10,13 +10,10 @@ Because the full 3D data usually resides on a high-performance computing cluster
     *   Peak detection on the final timepoint
     *   Mesh generation
     *   UV Unwrapping
-    *   **Action**: Transfer generated meshes to the cluster.
-2.  **Phase 2: Cluster Execution** (`--phase cluster`)
-    *   Project 3D volumes into 2D using UV unwrappings.
-    *   Run Cellpose-SAM on the 2D projections.
-    *   **Action**: Transfer 2D segmentation masks back to the local workstation.
-3.  **Phase 3: Local Post-processing & Tracking** (`--phase local_post`)
-    *   Reconstruct 2D segments back into 3D centroids.
+    *   **Action**: Transfer generated meshes to the batch processing cluster.
+2.  **Phase 2: Local Post-processing & Tracking** (`--phase local_post`)
+    *   **Action**: Once 2D centroids are extracted on the cluster, bring `centroids_2d_from_stack.csv` back to the local workstation.
+    *   Reconstruct 2D segments back into 3D centroids and merge across meshes.
     *   Run continuous frame-to-frame LAP tracking (replaces TrackMate).
     *   Map lineages through mitosis.
 
@@ -39,19 +36,15 @@ local_pre:
   mesh_generation: {}
   uv_unwrap: {}
 
-cluster:
-  project_2d: {}
-  cellpose_sam:
-    model_type: "cyto3"
-    diameter: 15.0
-    use_gpu: true
 
 local_post:
   reconstruct_3d:
     max_distance: 5.0
   tracking:
-    search_radius: 8.0
+    search_radius: 5.0
     max_gap_frames: 3
+    start_frame: 26
+    skip_frames: [134, 135]
     motion_model: "nearest_neighbor"
   division_mapping:
     interphase_dividers: [45, 80, 130, 195, 267]
@@ -78,25 +71,9 @@ Example:
 rsync -avz D:/Tracking/NucleiTracking/data/interim/lightsheet/embryo1/tracking_test_run_001/uv_unwrap/ username@hpc.cluster.edu:/path/to/data/embryo1/tracking_test_run_001/uv_unwrap/
 ```
 
-### 2. Run Cluster Processing
+### 2. Run Local Post-processing and Tracking
 
-Log into your cluster. Ensure you have the same `config.yml` on the cluster, or simply use the automated copy saved by the runner inside the dataset folder.
-
-Run the cluster logic (this requires GPU allocation):
-
-```bash
-python scripts/run_pipeline.py -c config.yml --phase cluster
-```
-
-**Data Transfer Step**:
-Once the Cellpose segmentations are finished, the script will output another `rsync` command. Run this from your local workstation terminal to pull the segmentations back.
-
-Example:
-```bash
-rsync -avz username@hpc.cluster.edu:/path/to/data/embryo1/tracking_test_run_001/segmented/ D:/Tracking/NucleiTracking/data/interim/lightsheet/embryo1/tracking_test_run_001/segmented/
-```
-
-### 3. Run Local Post-processing and Tracking
+Once the batch scripts on the cluster have finished segmenting and finding the 2D properties, ensure you transfer `centroids_2d_from_stack.csv` back into the local tracking directory.
 
 Back on your local workstation, run the final phase to reconstruct the 3D positions and track them:
 
@@ -104,4 +81,4 @@ Back on your local workstation, run the final phase to reconstruct the 3D positi
 python scripts/run_pipeline.py -c config.yml --phase local_post
 ```
 
-This will run the built-in LAP tracker (bypassing TrackMate) and execute the mitosis mapping script. The final outputs will be saved in your dataset's `tracking_<param_set_name>` directory as `final_lineages.csv`.
+This will run the built-in tracking merging algorithm, the LAP tracker (bypassing TrackMate), and execute the mitosis mapping script. The final outputs will be saved in your dataset's `tracking_<param_set_name>` directory as `final_lineages.csv`.

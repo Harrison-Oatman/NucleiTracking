@@ -16,9 +16,9 @@ def main():
     parser.add_argument(
         "--phase",
         type=str,
-        choices=["local_pre", "cluster", "local_post", "all"],
+        choices=["local_pre", "local_post", "all"],
         default="all",
-        help="Which phase of the pipeline to run. 'all' runs everything locally (if you have the 3D data locally).",
+        help="Which phase of the pipeline to run.",
     )
 
     args = parser.parse_args()

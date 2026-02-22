@@ -18,6 +18,13 @@ def run_peak_detection(dataset: Path, config: PipelineConfig):
     Runs Difference of Gaussians to detect peak local maxima
     (nuclei centers) on the final timepoint.
     """
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_file = out_dir / "dog_peaks.npy"
+    if out_file.exists():
+        print(f"[{dataset.name}] Peak Detection (Skipped: {out_file.name} exists)")
+        return
+
     print(f"[{dataset.name}] Running Peak Detection...")
 
     # Locate the final timepoint image
@@ -51,11 +58,8 @@ def run_peak_detection(dataset: Path, config: PipelineConfig):
     print("  Finding peaks...")
     peaks = peak_local_max(dog, min_distance=min_distance, threshold_abs=threshold_abs)
 
-    out_dir = dataset / f"tracking_{config.param_set_name}"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    np.save(out_dir / "dog_peaks.npy", peaks)
-    print(f"  Saved {len(peaks)} peaks to {out_dir / 'dog_peaks.npy'}")
+    np.save(out_file, peaks)
+    print(f"  Saved {len(peaks)} peaks to {out_file}")
 
 
 def run_mesh_generation(dataset: Path, config: PipelineConfig):
@@ -63,9 +67,14 @@ def run_mesh_generation(dataset: Path, config: PipelineConfig):
     Uses DBSCAN to cluster peaks, keeping the largest cluster (the embryo),
     and reconstructs a surface mesh using Poisson reconstruction.
     """
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    obj_out_path = out_dir / "dog_peaks.obj"
+    if obj_out_path.exists():
+        print(f"[{dataset.name}] Mesh Generation (Skipped: {obj_out_path.name} exists)")
+        return
+
     print(f"[{dataset.name}] Running Mesh Generation...")
 
-    out_dir = dataset / f"tracking_{config.param_set_name}"
     peaks_path = out_dir / "dog_peaks.npy"
     if not peaks_path.exists():
         print(

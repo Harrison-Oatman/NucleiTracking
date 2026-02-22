@@ -10,7 +10,7 @@ class PipelineRunner:
         self.config_path = Path(config_path)
         self.config = PipelineConfig.load(self.config_path)
 
-    def run(self, phase: Literal["local_pre", "cluster", "local_post", "all"]):
+    def run(self, phase: Literal["local_pre", "local_post", "all"]):
         print(f"Starting NucleiTracking pipeline - Phase: {phase.upper()}")
         print(f"Processing dataset: {self.config.dataset.name}")
 
@@ -29,9 +29,6 @@ class PipelineRunner:
         if phase in ["local_pre", "all"]:
             self._run_local_pre(dataset)
 
-        if phase in ["cluster", "all"]:
-            self._run_cluster(dataset)
-
         if phase in ["local_post", "all"]:
             self._run_local_post(dataset)
 
@@ -39,26 +36,8 @@ class PipelineRunner:
         if phase == "local_pre":
             print("\n" + "=" * 50)
             print("LOCAL PRE-PROCESSING COMPLETE.")
-            print("ACTION REQUIRED: Transer meshes and UVs to cluster.")
-            print("Example rsync command:")
-            track_dir = (
-                Path(self.config.dataset) / f"tracking_{self.config.param_set_name}"
-            )
             print(
-                f"  rsync -avz {track_dir}/uv_unwrap/ user@cluster:/path/to/cluster/{self.config.dataset.name}/uv_unwrap/"
-            )
-            print("=" * 50 + "\n")
-
-        elif phase == "cluster":
-            print("\n" + "=" * 50)
-            print("CLUSTER PROCESSING COMPLETE.")
-            print("ACTION REQUIRED: Transer masks and projections back to local.")
-            print("Example rsync command:")
-            track_dir = (
-                Path(self.config.dataset) / f"tracking_{self.config.param_set_name}"
-            )
-            print(
-                f"  rsync -avz user@cluster:/path/to/cluster/{self.config.dataset.name}/segmented/ {track_dir}/segmented/"
+                "ACTION REQUIRED: Transer meshes and UVs to batch processing environment."
             )
             print("=" * 50 + "\n")
 
@@ -73,13 +52,9 @@ class PipelineRunner:
         steps.run_mesh_generation(dataset, self.config)
         steps.run_uv_unwrapping(dataset, self.config)
 
-    def _run_cluster(self, dataset: Path):
-        print(f"  [{dataset.name}] --- cluster ---")
-        steps.run_project_2d(dataset, self.config)
-        steps.run_cellpose_sam(dataset, self.config)
-
     def _run_local_post(self, dataset: Path):
         print(f"  [{dataset.name}] --- local_post ---")
-        steps.run_reconstruct_3d(dataset, self.config)
+        steps.run_merge_centroids(dataset, self.config)
         steps.run_tracking(dataset, self.config)
         steps.run_division_mapping(dataset, self.config)
+        steps.run_napari_visualization(dataset, self.config)
