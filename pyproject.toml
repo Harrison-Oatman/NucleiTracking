@@ -6,22 +6,77 @@ readme = "README.md"
 authors = [
     { name = "Harrison-Oatman", email = "46121828+Harrison-Oatman@users.noreply.github.com" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "blender-tissue-cartography>=0.0.5",
+    "natsort>=8.4.0",
+    "networkx>=3.5",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.13.1",
+    "pyyaml>=6.0.3",
+    "tables>=3.10.2",
+    "scipy",
+    "tifffile",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+local = [
     "colorcet>=3.1.0",
     "libigl>=2.6.1",
     "lxml>=6.0.2",
     "napari[pyqt5]>=0.6.6",
-    "natsort>=8.4.0",
-    "networkx>=3.5",
-    "pandas>=2.3.3",
-    "pymeshlab>=2025.7",
+    "pymeshlab",
     "scikit-image>=0.25.2",
     "scikit-learn>=1.7.2",
     "seaborn>=0.13.2",
-    "tables>=3.10.2",
 ]
+remote = [
+    "cellpose",
+]
+dev = [
+    "nucleitracking[remote]",
+    "nucleitracking[local]; sys_platform != 'linux'",
+]
+cu121 = [
+    "torch>=2.5.1",
+    "torchvision==0.20.1+cu121",
+    "nucleitracking[remote]"
+]
+cu128 = [
+    "torch>=2.9.1",
+    "torchvision==0.24.1+cu128",
+    "nucleitracking[remote]"
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cu121" },
+    { extra = "cu128" },
+  ],
+]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu121", extra = "cu121" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+torchvision = [
+  { index = "pytorch-cu121", extra = "cu121" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [dependency-groups]
 docs = [
@@ -59,7 +114,6 @@ extend-select = [
   "I",        # isort
   "ICN",      # flake8-import-conventions
   "NPY",      # NumPy specific rules
-  "PD",       # pandas-vet
   "PGH",      # pygrep-hooks
   "RUF",      # Ruff-specific
   "SIM",      # flake8-simplify
