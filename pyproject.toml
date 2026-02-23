@@ -105,6 +105,7 @@ dev = [
 
 [project.scripts]
 nucleitracking = "nucleitracking:main"
+pipeline = "nucleitracking.run_pipeline:main"
 
 [build-system]
 requires = ["uv_build>=0.8.14,<0.9.0"]

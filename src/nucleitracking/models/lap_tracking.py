@@ -14,7 +14,7 @@ def run_lap_tracking(
     Includes frame-to-frame linking and gap closing.
 
     Args:
-        spots_df (pd.DataFrame): Dataframe containing 'FRAME', 'POSITION_X', 'POSITION_Y', 'POSITION_Z'.
+        spots_df (pd.DataFrame): Dataframe containing 'frame', 'px_x', 'px_y', 'px_z'.
                                  Must have a unique index corresponding to the spot ID.
         max_distance (float): Maximum spatial distance to link spots.
         max_gap_frames (int): Maximum frames allowed to bridge a gap.
@@ -35,7 +35,7 @@ def run_lap_tracking(
     for spot_id in spots_df["graph_key"]:
         graph.add_node(spot_id)
 
-    frames = sorted(spots_df["FRAME"].unique())
+    frames = sorted(spots_df["frame"].unique())
 
     # --- Step 1: Frame-to-Frame Linking ---
     # To mimic TrackMate, we link points between t and t+1.
@@ -47,14 +47,14 @@ def run_lap_tracking(
         if t_next - t_curr > 1:
             continue
 
-        curr_spots = spots_df[spots_df["FRAME"] == t_curr]
-        next_spots = spots_df[spots_df["FRAME"] == t_next]
+        curr_spots = spots_df[spots_df["frame"] == t_curr]
+        next_spots = spots_df[spots_df["frame"] == t_next]
 
         if len(curr_spots) == 0 or len(next_spots) == 0:
             continue
 
-        curr_pos = curr_spots[["POSITION_X", "POSITION_Y", "POSITION_Z"]].values
-        next_pos = next_spots[["POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+        curr_pos = curr_spots[["px_x", "px_y", "px_z"]].values
+        next_pos = next_spots[["px_x", "px_y", "px_z"]].values
 
         # Build KDTree for quick distance queries and cost matrix construction
         tree = KDTree(next_pos)
@@ -104,7 +104,7 @@ def run_lap_tracking(
 
     for t_id, cc in enumerate(ccs, start=1):
         # Sort nodes in tracklet by time
-        sorted_nodes = sorted(cc, key=lambda n: spots_df.loc[n, "FRAME"])
+        sorted_nodes = sorted(cc, key=lambda n: spots_df.loc[n, "frame"])
         start_node = sorted_nodes[0]
         end_node = sorted_nodes[-1]
 
@@ -126,13 +126,13 @@ def run_lap_tracking(
         gap_cost_matrix = np.full((n_ends, n_ends + n_starts), max_distance * 10)
 
         for i, (_, end_spot) in enumerate(end_spots.iterrows()):
-            end_frame = end_spot["FRAME"]
-            end_pos = end_spot[["POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+            end_frame = end_spot["frame"]
+            end_pos = end_spot[["px_x", "px_y", "px_z"]].values
 
             # Find possible starts in the future within gap window
             valid_starts = start_spots[
-                (start_spots["FRAME"] > end_frame)
-                & (start_spots["FRAME"] <= end_frame + max_gap_frames)
+                (start_spots["frame"] > end_frame)
+                & (start_spots["frame"] <= end_frame + max_gap_frames)
             ]
 
             for start_idx_in_valid, (start_id, start_spot) in enumerate(
@@ -140,9 +140,7 @@ def run_lap_tracking(
             ):
                 # Get index of this start in the full start array
                 j = start_spots.index.get_loc(start_id)
-                start_pos = start_spot[
-                    ["POSITION_X", "POSITION_Y", "POSITION_Z"]
-                ].values
+                start_pos = start_spot[["px_x", "px_y", "px_z"]].values
                 dist = np.linalg.norm(end_pos - start_pos)
 
                 if dist < max_distance:
@@ -158,7 +156,7 @@ def run_lap_tracking(
                 target_id = start_spots.iloc[j]["graph_key"]
 
                 dt = int(
-                    spots_df.loc[target_id, "FRAME"] - spots_df.loc[source_id, "FRAME"]
+                    spots_df.loc[target_id, "frame"] - spots_df.loc[source_id, "frame"]
                 )
                 graph.add_edge(source_id, target_id, time=dt)
 

@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from nucleitracking.pipeline.runner import PipelineRunner
+from .pipeline.runner import PipelineRunner
 
 
 def main():

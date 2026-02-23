@@ -1,8 +1,8 @@
 from pathlib import Path
 from typing import Literal
 
-from nucleitracking.pipeline import steps
-from nucleitracking.pipeline.config import PipelineConfig
+from .config import PipelineConfig
+from .steps import local_post, local_pre
 
 
 class PipelineRunner:
@@ -48,13 +48,13 @@ class PipelineRunner:
 
     def _run_local_pre(self, dataset: Path):
         print(f"  [{dataset.name}] --- local_pre ---")
-        steps.run_peak_detection(dataset, self.config)
-        steps.run_mesh_generation(dataset, self.config)
-        steps.run_uv_unwrapping(dataset, self.config)
+        local_pre.run_peak_detection(dataset, self.config)
+        local_pre.run_mesh_generation(dataset, self.config)
+        local_pre.run_uv_unwrapping(dataset, self.config)
 
     def _run_local_post(self, dataset: Path):
         print(f"  [{dataset.name}] --- local_post ---")
-        steps.run_merge_centroids(dataset, self.config)
-        steps.run_tracking(dataset, self.config)
-        steps.run_division_mapping(dataset, self.config)
-        steps.run_napari_visualization(dataset, self.config)
+        local_post.run_merge_centroids(dataset, self.config)
+        local_post.run_tracking(dataset, self.config)
+        local_post.run_division_mapping(dataset, self.config)
+        local_post.run_napari_visualization(dataset, self.config)

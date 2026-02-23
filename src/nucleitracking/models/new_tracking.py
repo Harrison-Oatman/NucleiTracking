@@ -1,3 +1,4 @@
+import itertools
 from collections import defaultdict
 from xml.etree import ElementTree as ET
 
@@ -15,10 +16,10 @@ from tqdm import tqdm
 
 
 def quick_tracklets(spots_df, column="track_id") -> pd.DataFrame:
-    spots_df = spots_df.sort_values(by=["FRAME"])
+    spots_df = spots_df.sort_values(by=["frame"])
 
-    start_times = spots_df.groupby(column)["FRAME"].min()
-    end_times = spots_df.groupby(column)["FRAME"].max()
+    start_times = spots_df.groupby(column)["frame"].min()
+    end_times = spots_df.groupby(column)["frame"].max()
     start_id = spots_df.groupby(column)["graph_key"].first()
     end_id = spots_df.groupby(column)["graph_key"].last()
 
@@ -32,140 +33,6 @@ def quick_tracklets(spots_df, column="track_id") -> pd.DataFrame:
     )
 
     return tracklets
-
-
-def merge_close_tracklets(
-    spots_df: pd.DataFrame, graph: DiGraph, max_dis=6, latest_time=180
-):
-    graph = graph.copy()
-    spots_df = spots_df.copy()
-    tracklets = quick_tracklets(spots_df, column="linear_track_id")
-
-    print(np.sum(tracklets["start_time"].isna()))
-
-    # get locations of points in space; time axis is spread out
-    data = np.array(
-        spots_df[["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]].values
-    )
-    data[:, 0] = data[:, 0] * max_dis * 2
-    tree = KDTree(data)
-
-    n_changed = 0
-
-    tracklets_for_removal = []
-    spots_df["is_swapped"] = False
-
-    for tracklet in tqdm(
-        tracklets.sort_values(by=["end_time"], ascending=False).itertuples(),
-        desc="merging tracklets",
-    ):
-        tracklet_a = tracklet.Index
-        # exclude tracklet id 0
-        if tracklet_a == 0:
-            continue
-
-        print_all = False
-        if tracklet_a == 372:
-            print_all = True
-
-        # get tracklet data
-        t = tracklet.end_time
-        tracklet_a_start = tracklet.start_time
-        point_end_a = tracklet.end_id
-
-        if print_all:
-            print(f"")
-            print(f"tracklet {tracklet_a} at time {t}")
-            print(f"start time {tracklet_a_start}")
-            print(f"end time {t}")
-
-        # exclude time points that are too late
-        if t > latest_time:
-            continue
-
-        # locate point a
-        point_end_a_x = np.array(
-            spots_df.loc[
-                point_end_a, ["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]
-            ].values
-        )
-        point_end_a_x[0] = point_end_a_x[0] * max_dis * 2
-
-        # find nearest neighbor
-        dd, ii = tree.query(point_end_a_x, 2)
-
-        if print_all:
-            print(dd, ii)
-            print(f"{point_end_a_x}")
-            print(f"nearest neighbor {ii[1]} at distance {dd[1]}")
-
-        if dd[1] > max_dis:
-            # no neighbor found near end of track
-            continue
-
-        # get tracklet corresponding to nearest neighbor
-        point_end_b = spots_df.index[ii[1]]
-        tracklet_b = spots_df.loc[point_end_b, "linear_track_id"]
-
-        if pd.isna(tracklet_b):
-            continue
-
-        # tracklet b must have started after tracklet a
-        if (
-            tracklets.loc[tracklet_b, "start_time"] < tracklet_a_start
-            or tracklets.loc[tracklet_b, "end_time"] <= t
-        ):
-            continue
-
-        # get tracklet a and b points corresponding to the start of tracklet b
-        point_start_b = tracklets.loc[tracklet_b, "start_id"]
-        point_start_b_x = spots_df.loc[
-            point_start_b, ["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]
-        ].values
-        point_coincident_a = spots_df[
-            (spots_df["FRAME"] == point_start_b_x[0]) & spots_df["linear_track_id"]
-            == tracklet_a
-        ]
-        point_coincident_a_x = point_coincident_a[
-            ["FRAME", "POSITION_X", "POSITION_Y", "POSITION_Z"]
-        ].values
-
-        # tracklet b must have started close to tracklet a
-        dis = np.linalg.norm(point_coincident_a_x - point_start_b_x)
-        if dis > max_dis:
-            continue
-
-        # swap tracklet ids after time point
-        outs = list(graph.neighbors(point_end_b))
-        if len(outs) == 0:
-            print("no children")
-            continue
-
-        assert len(outs) == 1, "tid has multiple children"
-        child = outs[0]
-
-        graph.add_edge(point_end_a, child, track_id=tracklet_a, time=1)
-        graph.remove_edge(point_end_b, child)
-
-        before = (spots_df["linear_track_id"] == tracklet_b) & (spots_df["FRAME"] <= t)
-        after = spots_df[
-            (spots_df["linear_track_id"] == tracklet_b) & (spots_df["FRAME"] > t)
-        ].index
-
-        spots_df.loc[after, "linear_track_id"] = tracklet_a
-        spots_df.loc[after, "is_swapped"] = True
-
-        tracklets_for_removal.append(tracklet_b)
-        n_changed += 1
-
-    print(f"made {n_changed} swaps")
-    for_removal = spots_df.index[
-        spots_df["linear_track_id"].isin(tracklets_for_removal)
-    ]
-    graph.remove_nodes_from(for_removal)
-    spots_df = spots_df[~spots_df["linear_track_id"].isin(tracklets_for_removal)]
-
-    return spots_df, graph
 
 
 def interpolate_points(spots_df: pd.DataFrame, graph: DiGraph):
@@ -189,11 +56,11 @@ def interpolate_points(spots_df: pd.DataFrame, graph: DiGraph):
         source_spot = spots_df.loc[source]
         target_spot = spots_df.loc[target]
 
-        source_spot_frame = source_spot["FRAME"]
-        target_spot_frame = target_spot["FRAME"]
+        source_spot_frame = source_spot["frame"]
+        target_spot_frame = target_spot["frame"]
 
-        source_spot_x = source_spot[["POSITION_Z", "POSITION_X", "POSITION_Y"]].values
-        target_spot_x = target_spot[["POSITION_Z", "POSITION_X", "POSITION_Y"]].values
+        source_spot_x = source_spot[["px_z", "px_x", "px_y"]].values
+        target_spot_x = target_spot[["px_z", "px_x", "px_y"]].values
 
         interp = interp1d(
             [source_spot_frame, target_spot_frame],
@@ -208,8 +75,8 @@ def interpolate_points(spots_df: pd.DataFrame, graph: DiGraph):
             t = source_spot_frame + t_offset
             new_spot = source_spot.copy()
 
-            new_spot["FRAME"] = t
-            new_spot[["POSITION_Z", "POSITION_X", "POSITION_Y"]] = interp(t)
+            new_spot["frame"] = t
+            new_spot[["px_z", "px_x", "px_y"]] = interp(t)
             new_spot["graph_key"] = new_spot_idx
             new_spot["ID"] = new_spot_idx
             new_spot["interpolated"] = True
@@ -244,10 +111,10 @@ def detect_positional_outliers(spots):
     Detects outliers according to x and y positions
     Uses DBSCAN and keeps only the largest cluster
     """
-    if "POSITION_Z" in spots.columns:
-        x = spots[["POSITION_X", "POSITION_Y", "POSITION_Z"]].values
+    if "px_z" in spots.columns:
+        x = spots[["px_x", "px_y", "px_z"]].values
     else:
-        x = spots[["POSITION_X", "POSITION_Y"]].values
+        x = spots[["px_x", "px_y"]].values
     dbscan = DBSCAN(eps=3, min_samples=1)
     return dbscan.fit_predict(x)
 
@@ -281,7 +148,7 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
             }
 
             spot_attributes["graph_key"] = spot_id
-            spot_attributes["FRAME"] = int(spot_attributes["FRAME"])
+            spot_attributes["frame"] = int(spot_attributes["frame"])
 
             # mostly used in 2d
             if spot.text:
@@ -318,10 +185,10 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
 
         this_track_spots = list(this_track_spots)
 
-        track_spots = spots_df.loc[this_track_spots].sort_values(by=["FRAME"]).index
-        for source, target in zip(track_spots[:-1], track_spots[1:], strict=False):
-            source_spot_frame = int(spots_df.loc[source]["FRAME"])
-            target_spot_frame = int(spots_df.loc[target]["FRAME"])
+        track_spots = spots_df.loc[this_track_spots].sort_values(by=["frame"]).index
+        for source, target in itertools.pairwise(track_spots):
+            source_spot_frame = int(spots_df.loc[source]["frame"])
+            target_spot_frame = int(spots_df.loc[target]["frame"])
 
             # add edge to graph
             graph.add_edge(
@@ -341,6 +208,10 @@ def process_trackmate_tree(tree: ET) -> (pd.DataFrame, DiGraph):
     )
 
     return spots_df, graph
+
+
+def merge_close_tracklets(spots_df: pd.DataFrame, graph: DiGraph, max_distance=10):
+    raise NotImplementedError
 
 
 def get_sister_distances(
@@ -364,16 +235,14 @@ def get_sister_distances(
     division_spots = spots_df[
         spots_df["linear_track_id"].isin(division_tracklets.index)
     ]
-    division_spots = division_spots[division_spots["FRAME"] < div_end]
-    division_spots = division_spots[division_spots["FRAME"] > div_start].copy()
-    division_spots["frame_rescaled"] = division_spots["FRAME"] * max_distance * 2
+    division_spots = division_spots[division_spots["frame"] < div_end]
+    division_spots = division_spots[division_spots["frame"] > div_start].copy()
+    division_spots["frame_rescaled"] = division_spots["frame"] * max_distance * 2
 
-    spots_df["frame_rescaled"] = spots_df["FRAME"] * max_distance * 2
+    spots_df["frame_rescaled"] = spots_df["frame"] * max_distance * 2
 
     # get the locations of the division spots
-    division_spots_x = division_spots[
-        ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"]
-    ].values
+    division_spots_x = division_spots[["frame_rescaled", "px_x", "px_y", "px_z"]].values
     tree = KDTree(division_spots_x)
 
     # subset the full length tracklets and the shorter length tracklets
@@ -388,7 +257,7 @@ def get_sister_distances(
 
     sl_start_x = division_spots.loc[
         division_sl["start_id"],
-        ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"],
+        ["frame_rescaled", "px_x", "px_y", "px_z"],
     ].values
 
     sl_children = []
@@ -404,9 +273,9 @@ def get_sister_distances(
 
         # print(f"outdegree of spot a{spot_a} is {graph.out_degree(spot_a)}")
 
-        spot_a_next = list(graph.successors(spot_a))[0]
+        spot_a_next = next(iter(graph.successors(spot_a)))
         spot_a_next_x = spots_df.loc[
-            spot_a_next, ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"]
+            spot_a_next, ["frame_rescaled", "px_x", "px_y", "px_z"]
         ].values
 
         spot_a_parents = []
@@ -419,7 +288,7 @@ def get_sister_distances(
 
             spot_b = division_spots.index[ii[i]]
             spot_b_x = spots_df.loc[
-                spot_b, ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"]
+                spot_b, ["frame_rescaled", "px_x", "px_y", "px_z"]
             ].values
             tracklet_b = spots_df.loc[spot_b, "linear_track_id"]
 
@@ -435,16 +304,16 @@ def get_sister_distances(
             if graph.out_degree(spot_b) != 1:
                 continue
 
-            spot_b_next = list(graph.successors(spot_b))[0]
-            spot_b_prev = list(graph.predecessors(spot_b))[0]
+            spot_b_next = next(iter(graph.successors(spot_b)))
+            spot_b_prev = next(iter(graph.predecessors(spot_b)))
 
             spot_b_next_x = spots_df.loc[
                 spot_b_next,
-                ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"],
+                ["frame_rescaled", "px_x", "px_y", "px_z"],
             ].values
             spot_b_prev_x = spots_df.loc[
                 spot_b_prev,
-                ["frame_rescaled", "POSITION_X", "POSITION_Y", "POSITION_Z"],
+                ["frame_rescaled", "px_x", "px_y", "px_z"],
             ].values
 
             pred_spot_a_prev_x = spot_a_x - extent_factor * (spot_a_next_x - spot_a_x)
@@ -494,9 +363,7 @@ def map_divisions(
     spots_df["status"] = 0
     graph = graph.copy()
 
-    for start, end in zip(
-        interphase_dividers[:-1], interphase_dividers[1:], strict=False
-    ):
+    for start, end in itertools.pairwise(interphase_dividers):
         print(f"mapping divisions between {start} and {end}")
         tracklets = quick_tracklets(spots_df, column="linear_track_id")
         cost_matrix, parent_map, sl_children, spots_df = get_sister_distances(
@@ -534,13 +401,13 @@ def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
     taken as a postprocessing step after division detection
     """
     spots_df = spots_df.copy()
-    undirected_graph = graph.copy().to_undirected()
+    graph.copy().to_undirected()
 
     # assign track index as entire connected lineage of a tracked nucleus
-    new_track_idx = {idx: 0 for idx in spots_df.index}
+    new_track_idx = dict.fromkeys(spots_df.index, 0)
 
     cc = connected_components(graph.to_undirected())
-    cc = [c for c in sorted(cc, key=len, reverse=True)]
+    cc = sorted(cc, key=len, reverse=True)
 
     for track, c in enumerate(cc, start=1):
         for spot in c:
@@ -561,7 +428,7 @@ def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
             broken_graph.remove_edge(parent, child)
 
     # assigns tracklet index based on new graph
-    new_tracklet_idx = {idx: 0 for idx in spots_df.index}
+    new_tracklet_idx = dict.fromkeys(spots_df.index, 0)
     undirected_ccs = connected_components(broken_graph.to_undirected())
 
     for tracklet, c in enumerate(undirected_ccs, start=1):
@@ -578,7 +445,7 @@ def process_graph(spots_df: pd.DataFrame, graph: DiGraph) -> pd.DataFrame:
         lambda: -1, {spot: graph.in_degree(spot) for spot in graph.nodes()}
     )
 
-    spots_df = spots_df.sort_values(by=["FRAME"])
+    spots_df = spots_df.sort_values(by=["frame"])
 
     print(f"number of tracklets detected: {tracklet}")
     spots_df["tracklet_id"] = spots_df.index.map(new_tracklet_idx)
