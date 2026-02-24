@@ -57,4 +57,5 @@ class PipelineRunner:
         local_post.run_merge_centroids(dataset, self.config)
         local_post.run_tracking(dataset, self.config)
         local_post.run_division_mapping(dataset, self.config)
-        local_post.run_napari_visualization(dataset, self.config)
+        local_post.run_export_hdf5(dataset, self.config)
+        local_post.run_napari_vis(dataset, self.config)

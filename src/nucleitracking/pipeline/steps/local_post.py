@@ -1,16 +1,25 @@
+import json
+from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 
+import matplotlib as mpl
+import napari
 import numpy as np
 import pandas as pd
+from dtaidistance import dtw_ndim
+from natsort import natsorted
 from scipy.optimize import linear_sum_assignment
 from scipy.spatial.distance import cdist
+from sklearn.decomposition import PCA
+from tqdm import tqdm
 
 from nucleitracking.models.division_tracking import map_divisions
 from nucleitracking.models.lap_tracking import run_lap_tracking
 from nucleitracking.pipeline.config import PipelineConfig
 
 
-def merge_centroids(current_centroids, centroids_to_add, max_distance=25):
+def merge_centroids(current_centroids, centroids_to_add, max_distance: float = 25):
     """
     Merges centroids from `centroids_to_add` into `current_centroids` if they are within `max_distance`.
     """
@@ -107,75 +116,70 @@ def run_merge_centroids(dataset: Path, config: PipelineConfig):
         }
     )
 
+    # visualize the new centroids in napari to sanity check and determine NC timing
+    viewer = napari.Viewer()
+    color_map = dict(zip(meshes, list(mpl.colormaps["tab10"].colors)))
+    colors = [color_map[mesh] for mesh in new_centroids["mesh_name"]]
+    viewer.add_points(
+        new_centroids[["frame", "px_z", "px_y", "px_x"]].values,
+        name="Merged Centroids",
+        properties={"mesh_name": new_centroids["mesh_name"]},
+        face_color=colors,
+        size=new_centroids["px_area"] ** 0.5,
+        shading="spherical",
+    )
+
     out_file = out_dir / "new_centroids.csv"
     new_centroids.to_csv(out_file, index=False)
     print(f"  Saved reconstructed 3D centroids to {out_file}")
 
 
-# def run_napari_visualization(dataset: Path, config: PipelineConfig):
-#     """
-#     Opens the final lineages CSV in a 3D Napari viewer, mirroring coordinates
-#     and applying a discrete color palette to track IDs.
-#     """
-#     out_dir = dataset / f"tracking_{config.param_set_name}"
-#     final_csv = out_dir / "final_lineages.csv"
-#
-#     if not final_csv.exists():
-#         print(f"  [Warning] {final_csv.name} not found. Skipping visualization.")
-#         return
-#
-#     print(f"[{dataset.name}] Opening Napari Visualization...")
-#     import colorcet as cc
-#     import napari
-#
-#     df = pd.read_csv(final_csv)
-#
-#     # Reflect coordinates to "unwrap" the cylinder if possible
-#     if "px_z" in df.columns and "px_x" in df.columns.values:
-#         df["reflection_z"] = 2.1 * df["px_z"].max() - df["px_z"]
-#         df["reflection_x"] = df["px_x"].max() - df["px_x"]
-#         df["is_reflected"] = df["px_x"] > df["px_x"].max() / 2
-#
-#         df["display_x"] = df["reflection_x"] * df["is_reflected"] + df["px_x"] * (
-#             ~df["is_reflected"]
-#         )
-#         df["display_z"] = df["reflection_z"] * df["is_reflected"] + df["px_z"] * (
-#             ~df["is_reflected"]
-#         )
-#     else:
-#         df["display_x"] = df.get("px_x", np.zeros(len(df)))
-#         df["display_z"] = df.get("px_z", np.zeros(len(df)))
-#
-#     column = "track_id"
-#     if column not in df.columns:
-#         print(
-#             f"  [Warning] '{column}' not in {final_csv.name}. Displaying points in white."
-#         )
-#         color = "white"
-#         properties = None
-#     else:
-#         track_ids = np.nan_to_num(df[column].unique())
-#         palette = cc.glasbey  # Discrete categorical palette
-#         color_map = {
-#             track: palette[i % len(palette)] for i, track in enumerate(track_ids)
-#         }
-#         color = [color_map[track] for track in df[column].fillna(0)]
-#         properties = {"spot id": df.index, column: df[column]}
-#
-#     # Prepare coordinate matrix (T, Z, Y, X in napari by default, but we'll use T, X, Y, Z for 3D)
-#     # Napari expects (T, Z, Y, X) for points to be displayed in the correct orientation usually.
-#     coords = df[["FRAME", "display_x", "px_y", "display_z"]].values
-#
-#     viewer = napari.Viewer(ndisplay=3)
-#     viewer.add_points(
-#         coords,
-#         name="Tracked Lineages",
-#         properties=properties,
-#         face_color=color,
-#         size=13,
-#     )
-#     viewer.theme = "dark"
-#     napari.run()
+def run_tracking(dataset: Path, config: PipelineConfig):
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    out_file = out_dir / "lap_tracked_spots.csv"
+    if out_file.exists():
+        print(f"[{dataset.name}] LAP Tracking (Skipped: {out_file.name} exists)")
+        return
+
+    print(f"[{dataset.name}] Running LAP Tracking...")
+
+    # Load 3D centroids generated from the local post-processing Reconstruction step
+    # For now, we assume a standard name
+    centroids_path = dataset / f"tracking_{config.param_set_name}" / "new_centroids.csv"
+    if not centroids_path.exists():
+        print(
+            f"  [Warning] Centroids file not found at {centroids_path}. Skipping tracking."
+        )
+        return
+
+    centroids = pd.read_csv(centroids_path)
+
+    # Filter frames based on user configuration
+    if config.local_post.tracking.start_frame > 0:
+        print(
+            f"  Filtering out frames before {config.local_post.tracking.start_frame}..."
+        )
+        centroids = centroids[
+            centroids["frame"] >= config.local_post.tracking.start_frame
+        ]
+
+    if config.local_post.tracking.skip_frames:
+        print(f"  Skipping frames: {config.local_post.tracking.skip_frames}...")
+        centroids = centroids[
+            ~centroids["frame"].isin(config.local_post.tracking.skip_frames)
+        ]
+
+    # Run the new Python LAP tracker instead of TrackMate
+    spots_df, _graph = run_lap_tracking(
+        centroids,
+        max_distance=config.local_post.tracking.search_radius,
+        max_gap_frames=config.local_post.tracking.max_gap_frames,
+    )
+
+    # Save preliminary tracking results
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    spots_df.to_csv(out_dir / "lap_tracked_spots.csv", index=False)
+    print(f"  Saved LAP tracked spots to {out_dir / 'lap_tracked_spots.csv'}")
 
 
 def interpolate_spots(spots_df: pd.DataFrame):
@@ -308,116 +312,423 @@ def run_division_mapping(dataset: Path, config: PipelineConfig):
     """
     Calculate division costs at each division
     """
-    spots_df = map_divisions(
+    final_spots_df = map_divisions(
         spots_df, config.local_post.division_mapping.interphase_dividers
     )
 
-    spots_df = calculate_tracks_and_tracklets(spots_df)
+    final_spots_df = calculate_tracks_and_tracklets(final_spots_df)
 
-    print(spots_df.groupby("track_id")["tracklet_id"].nunique().value_counts())
+    print(final_spots_df.groupby("track_id")["tracklet_id"].nunique().value_counts())
 
-    import colorcet as cc
-    import napari
+    # Save the final results ready for HDF5 extraction!
+    final_spots_df.to_csv(out_dir / "final_lineages.csv", index=False)
+    print(f"  Saved final lineages to {out_dir / 'final_lineages.csv'}")
 
-    positions = spots_df[["frame", "px_z", "px_y", "px_x"]].values
-    colors = [cc.glasbey[i % len(cc.glasbey)] for i in spots_df["track_id"]]
+
+def get_mean_traj(df, axes, n=50):
+    """
+    Get mean trajectory for a given DataFrame `ss` and columns `cols`.
+    Interpolates the data to `n` points.
+    """
+    pseudo_time = np.linspace(0, 1, n)
+
+    interpolated_axis_values = {col: [] for col in axes}
+
+    mean_length = df.groupby("tracklet_id")[axes[0]].count().mean()
+
+    for i, (tid, group) in enumerate(df.groupby("tracklet_id")):
+        if np.abs(len(group) - mean_length) > 25:
+            continue
+
+        for col in axes:
+            vals = group[col].rolling(5, 1, center=True).mean()
+            vals = (vals - vals.mean()) / vals.std()
+
+            st = np.arange(len(vals)) / len(vals)
+
+            if np.sum(vals.isna()) > 0:
+                print(f"skipping {tid} due to NaNs")
+                continue
+
+            x_interp = np.interp(pseudo_time, st, vals)
+            interpolated_axis_values[col].append(x_interp)
+
+    for col in axes:
+        interpolated_axis_values[col] = np.array(interpolated_axis_values[col])
+        interpolated_axis_values[col] = np.nanmean(
+            interpolated_axis_values[col], axis=0
+        )
+
+    return pseudo_time, interpolated_axis_values
+
+
+def map_pseudotime(warping_path, pseudotime_full, len_this_traj):
+    mapping = defaultdict(list)
+    for i, j in warping_path:
+        mapping[i].append(j)
+
+    pseudotime_mapped = np.full(len_this_traj, np.nan)
+
+    for i, js in mapping.items():
+        pseudotime_mapped[i] = np.mean(pseudotime_full[js])
+    return pseudotime_mapped
+
+
+def warp_df(df, n=100, plot_mean_traj=False):
+    pseudotime_mapper = {}
+    distance_mapper = {}
+
+    axes = ["radius", "intensity_mean", "intensity_std"]
+
+    for cycle in [11, 12, 13]:
+        print(f"Processing cycle {cycle}")
+
+        ss = df[df["cycle"] == cycle].copy()
+
+        mean_length = ss.groupby("tracklet_id")["area"].count().mean()
+
+        st, mean_trajectory = get_mean_traj(ss, axes, n=n)
+
+        if plot_mean_traj:
+            import matplotlib.pyplot as plt
+
+            plt.figure(figsize=(8, 6))
+            for ax in axes:
+                plt.plot(st, mean_trajectory[ax], label=ax)
+            plt.xlabel("Pseudotime")
+            plt.ylabel("Value")
+            plt.title(f"Mean Trajectory in Cycle {cycle}")
+            plt.legend()
+            plt.show()
+
+        full_traj = np.stack([mean_trajectory[ax] for ax in axes], axis=1)
+
+        pseudotime_sequences = []
+
+        for tid, group in tqdm(ss.groupby("tracklet_id")):
+            if np.abs(len(group) - mean_length) > 25:
+                continue
+
+            this_traj = []
+            na_found = False
+
+            for axis in axes:
+                x = group[axis].rolling(5, 1, center=True).mean()
+                x = (x - x.mean()) / x.std()
+                this_traj.append(x)
+
+                if np.sum(x.isna()) > 0:
+                    print(f"skipping {tid} due to NaNs in axis {axis}")
+                    na_found = True
+                    break
+
+            this_traj = np.stack(this_traj, axis=1)
+
+            if na_found:
+                continue
+
+            seq, dis = dtw_ndim.warping_path(
+                this_traj.astype(np.double),
+                full_traj.astype(np.double),
+                include_distance=True,
+            )
+
+            pseudotime_seq = map_pseudotime(seq, st, len(this_traj))
+            pseudotime_sequences.append(pseudotime_seq)
+
+            pseudotime_mapper.update(dict(zip(group.index, pseudotime_seq)))
+            distance_mapper.update(dict.fromkeys(group.index, dis))
+
+    df["pseudotime"] = df.index.map(pseudotime_mapper)
+    df["distance"] = df.index.map(distance_mapper)
+
+    return df
+
+
+def run_dtw(dataset: Path, config: PipelineConfig):
+    print(f"[{dataset.name}] Running DTW alignment...")
+
+    spots_df = pd.read_csv(
+        dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv"
+    )
+    spots_df = warp_df(spots_df, n=100)
+
+    spots_df.to_csv(
+        dataset
+        / f"tracking_{config.param_set_name}"
+        / "final_lineages_with_pseudotime.csv",
+        index=False,
+    )
+    print(
+        f"  Saved final lineages with pseudotime to {dataset / f'tracking_{config.param_set_name}' / 'final_lineages_with_pseudotime.csv'}"
+    )
+
+
+def get_times_from_json(json_path):
+    frame_times = defaultdict(list)
+
+    json_path = Path(json_path)
+    for j_file in natsorted(json_path.glob("*.json")):
+        with open(j_file) as f:
+            data = json.load(f)
+            frame = int(j_file.stem[-3:])
+            timestamps = data["processingInformation"]["acquisition"][0]["time_stamps"]
+
+            times_seconds = [datetime.fromisoformat(t).timestamp() for t in timestamps]
+            frame_times[frame].append(np.mean(times_seconds))
+
+    mean_frame_times = {frame: np.mean(times) for frame, times in frame_times.items()}
+    return mean_frame_times
+
+
+def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
+    """
+    conversions
+    """
+
+    um_per_px = config.metadata.um_per_px
+
+    df["x"] = df["px_x"] * um_per_px
+    df["z"] = df["px_z"] * um_per_px
+    df["y"] = df["px_y"] * um_per_px
+    df["area"] = df["px_area"] * um_per_px**2
+    df["radius"] = (df["area"] / np.pi) ** (1 / 2)
+    df["distance_from_surface"] = df["uv_z"] - 12
+
+    """
+    Cylindrical coordinates calculation
+    - only ap position and theta are calculated, not radius
+    - instead, distance_from_surface should be used
+    """
+
+    pos = np.array(df[["x", "y", "z"]])
+    pca = PCA(n_components=3)
+    transformed_data = pca.fit_transform(pos)
+
+    if config.local_post.data_export.show_napari:
+        # run napari to allow the user to set anterior and posterior from PCA
+        viewer = napari.Viewer()
+        viewer.add_points(
+            transformed_data[df["frame"] == df["frame"].max()],
+            size=5,
+            shading="spherical",
+        )
+        napari.run()
+
+    # calculate AP position, and other details
+    a = config.local_post.data_export.anterior
+    p = config.local_post.data_export.posterior
+
+    df["AP_raw"] = transformed_data[:, 0]
+    df["AP"] = (df["AP_raw"] - a) / (p - a)
+    df["AP_um"] = df["AP"] * np.abs(a - p)
+    df["AP_um_centered"] = (df["AP"] - 0.5) * np.abs(a - p)
+    df["um_from_anterior"] = np.abs(df["AP_raw"] - a)
+    df["um_from_posterior"] = np.abs(df["AP_raw"] - p)
+    df["distance_to_pole"] = np.min(
+        np.stack([df["um_from_anterior"], df["um_from_posterior"]], axis=-1), axis=-1
+    )
+
+    # calculate theta, a ccw (anterior up) traversal around the AP axis, which should be centered at dorsal.
+    dorsal_pos = transformed_data[:, 1]
+    dorsal_axis = pca.components_[1]
+
+    if not config.local_post.data_export.dorsal_on_right:
+        dorsal_pos = -dorsal_pos
+        dorsal_axis = -dorsal_axis
+
+    df["theta"] = np.arctan2(dorsal_pos, transformed_data[:, 2])
+
+    vec = np.cross(dorsal_axis, pca.components_[2])
+    ant_vec = pca.components_[0] * ((a > 0) - (a < 0))
+    reorder = np.dot(vec, ant_vec) < 0
+    if reorder:
+        df["theta"] = -df["theta"]
+
+    """
+    Timing calculations
+    """
+
+    frame_map = get_times_from_json(config.dataset / "json")
+    start_time = min(frame_map.values())
+
+    df["time"] = (df["frame"].map(frame_map) - start_time) / 60
+
+    assert df["time"].isna().sum() == 0, (
+        "Some frames are missing time information. Please check the JSON files and frame mapping."
+    )
+
+    df["tracklet_start_time"] = df["tracklet_id"].map(
+        df.groupby("tracklet_id")["time"].min()
+    )
+
+    cycle_starts = np.array(config.local_post.division_mapping.interphase_dividers)
+    cycle_starts[0] = max(cycle_starts[0], df["frame"].min() + 1)
+
+    t_cycle = (
+        df.groupby("tracklet_id")["frame"]
+        .min()
+        .apply(lambda frame: np.argmax(cycle_starts > frame))
+    )
+    df["cycle"] = df["tracklet_id"].map(t_cycle) + 10
+
+    print(cycle_starts)
+    print(f"frames included: {df['frame'].unique()}")
+    print(f"cycles detected: {df['cycle'].unique()}")
+
+    nc11_time = df[df["cycle"] == 11].groupby("tracklet_id")["time"].min().median()
+    df["time_since_nc11"] = df["time"] - nc11_time
+
+    """
+    tracklet cleaning
+    -identify nuclei in trackid 0
+    -identify tracklets without any relationships
+    -identify tracklets with cycle length more than 6 minutes from the cycle average
+    """
+
+    best_df = df[df["track_id"] > 0].copy()
+    n_tracklets = best_df["track_id"].map(
+        best_df.groupby("track_id")["tracklet_id"].nunique()
+    )
+    best_df = best_df[n_tracklets > 1]
+
+    t = best_df.groupby("tracklet_id")
+    ts = {}
+    ts["time_start"] = t["time"].min()
+    ts["time_end"] = t["time"].max()
+    ts["length"] = t["time"].max() - t["time"].min()
+    ts["cycle"] = t["cycle"].first()
+
+    tracklets = pd.DataFrame(ts)
+
+    cycle_avg_length = tracklets.groupby("cycle")["length"].median()
+
+    tracklets["cycle_avg"] = tracklets["cycle"].map(cycle_avg_length)
+    tracklets["good"] = np.abs(tracklets["length"] - tracklets["cycle_avg"]) < 6
+    good_tracklets = tracklets[tracklets["good"]].index
+
+    df["problematic"] = ~df["tracklet_id"].isin(good_tracklets)
+
+    """
+    Run dtw
+    """
+    df = warp_df(df, n=100, plot_mean_traj=False)
+
+    print(df.columns)
+
+    keep = [
+        "time_since_nc11",
+        "frame",
+        "z",
+        "y",
+        "x",
+        "AP",
+        "theta",
+        "area",
+        "radius",
+        "intensity_mean",
+        "intensity_std",
+        "cycle",
+        "px_z",
+        "px_y",
+        "px_x",
+        "px_area",
+        "uv_v",
+        "uv_u",
+        "uv_z",
+        "uv_distance_from_edge",
+        "distance_from_surface",
+        "uv_area",
+        "area_distortion",
+        "mesh_name",
+        "is_interpolated",
+        "track_id",
+        "tracklet_id",
+        "parent_id",
+        "n_children",
+        "AP_raw",
+        "AP_um",
+        "AP_um_centered",
+        "um_from_anterior",
+        "um_from_posterior",
+        "distance_to_pole",
+        "time",
+        "problematic",
+        "pseudotime",
+        "distance",
+    ]
+
+    return df[keep].copy()
+
+
+def run_export_hdf5(dataset: Path, config: PipelineConfig):
+    print(f"[{dataset.name}] Exporting to HDF5...")
+    out_file = (
+        dataset / f"tracking_{config.param_set_name}" / "final_lineages_processed.h5"
+    )
+
+    if out_file.exists():
+        print(
+            f"  [Warning] Processed HDF5 already exists at {out_file}. Skipping export."
+        )
+        return
+
+    spots_df = pd.read_csv(
+        dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv"
+    )
+
+    final_df = postprocess_spots_df(spots_df, config)
+
+    final_df.to_hdf(out_file, key="lineages", index=False)
+    print(f"  Saved processed lineages to {out_file}")
+
+
+def run_napari_vis(dataset: Path, config: PipelineConfig):
+    print(f"[{dataset.name}] Running Napari Visualization...")
+
+    final_h5 = (
+        dataset / f"tracking_{config.param_set_name}" / "final_lineages_processed.h5"
+    )
+    if not final_h5.exists():
+        print(
+            f"  [Warning] Processed HDF5 not found at {final_h5}. Skipping visualization."
+        )
+        return
+
+    df = pd.read_hdf(final_h5, key="lineages")
 
     viewer = napari.Viewer(ndisplay=3)
+
+    import colorcet as cc
+
+    color = [cc.glasbey[tid % 255] for tid in df["track_id"]]
     viewer.add_points(
-        positions,
-        face_color=colors,
-        size=10,
+        df[["frame", "x", "y", "z"]].values,
+        name="Tracked Lineages",
         properties={
-            "track_id": spots_df["track_id"],
-            "is_interpolated": spots_df["is_interpolated"],
-            "parent_id": spots_df["parent_id"],
+            "track_id": df["track_id"],
+            "cycle": df["cycle"],
+            "time": df["time_since_nc11"],
         },
+        face_color=color,
+        size=df["radius"] * 2,
+        border_color="black",
+        border_width=0.1,
     )
+
+    color = [cc.glasbey[cycle] for cycle in df["cycle"]]
+    viewer.add_points(
+        df[["frame", "x", "y", "z"]].values,
+        name="Cycle Colored",
+        properties={
+            "track_id": df["track_id"],
+            "cycle": df["cycle"],
+            "time": df["time_since_nc11"],
+        },
+        face_color=color,
+        size=df["radius"] * 2,
+        border_color="black",
+        border_width=0.1,
+    )
+    viewer.theme = "dark"
     napari.run()
-
-    # graph = nx.DiGraph()
-    #
-    # track_id_most_recent = {}
-    #
-    # for frame, spots in spots_df.groupby("frame"):
-    #     parents = spots["linear_track_id"].map(track_id_most_recent)
-    #
-    #     for parent, child in zip(parents, spots[["graph_key"]]):
-    #         if pd.isna(parent):
-    #             continue
-    #         graph.add_edge(parent, child, time=1)
-    #
-    #     track_id_most_recent.update(
-    #         dict(spots[["linear_track_id", "graph_key"]].values)
-    #     )
-    #
-    # print("  Interpolating points...")
-    # interpolated_spots_df, interpolated_graph = interpolate_points(spots_df, graph)
-
-    # print("  Merging close tracklets...")
-    # merged_spots_df, merged_graph = merge_close_tracklets(
-    #     interpolated_spots_df, interpolated_graph, max_dis=12
-    # )
-
-    # print("  Mapping divisions...")
-    # mapped_graph, _test_spots_df = map_divisions(
-    #     interpolated_spots_df,
-    #     interpolated_graph,
-    #     config.local_post.division_mapping.interphase_dividers,
-    #     new_track_cost=config.local_post.division_mapping.new_track_cost,
-    # )
-    #
-    # print("  Processing final lineage graph...")
-    # final_spots_df = process_graph(interpolated_spots_df, mapped_graph)
-    #
-    # # Save the final results ready for HDF5 extraction!
-    # final_spots_df.to_csv(out_dir / "final_lineages.csv", index=False)
-    # print(f"  Saved final lineages to {out_dir / 'final_lineages.csv'}")
-
-
-def run_tracking(dataset: Path, config: PipelineConfig):
-    out_dir = dataset / f"tracking_{config.param_set_name}"
-    out_file = out_dir / "lap_tracked_spots.csv"
-    if out_file.exists():
-        print(f"[{dataset.name}] LAP Tracking (Skipped: {out_file.name} exists)")
-        return
-
-    print(f"[{dataset.name}] Running LAP Tracking...")
-
-    # Load 3D centroids generated from the local post-processing Reconstruction step
-    # For now, we assume a standard name
-    centroids_path = dataset / f"tracking_{config.param_set_name}" / "new_centroids.csv"
-    if not centroids_path.exists():
-        print(
-            f"  [Warning] Centroids file not found at {centroids_path}. Skipping tracking."
-        )
-        return
-
-    centroids = pd.read_csv(centroids_path)
-
-    # Filter frames based on user configuration
-    if config.local_post.tracking.start_frame > 0:
-        print(
-            f"  Filtering out frames before {config.local_post.tracking.start_frame}..."
-        )
-        centroids = centroids[
-            centroids["frame"] >= config.local_post.tracking.start_frame
-        ]
-
-    if config.local_post.tracking.skip_frames:
-        print(f"  Skipping frames: {config.local_post.tracking.skip_frames}...")
-        centroids = centroids[
-            ~centroids["frame"].isin(config.local_post.tracking.skip_frames)
-        ]
-
-    # Run the new Python LAP tracker instead of TrackMate
-    spots_df, _graph = run_lap_tracking(
-        centroids,
-        max_distance=config.local_post.tracking.search_radius,
-        max_gap_frames=config.local_post.tracking.max_gap_frames,
-    )
-
-    # Save preliminary tracking results
-    out_dir = dataset / f"tracking_{config.param_set_name}"
-    spots_df.to_csv(out_dir / "lap_tracked_spots.csv", index=False)
-    print(f"  Saved LAP tracked spots to {out_dir / 'lap_tracked_spots.csv'}")

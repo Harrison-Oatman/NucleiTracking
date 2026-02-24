@@ -1,4 +1,5 @@
 import json
+from enum import Enum
 from pathlib import Path
 
 import yaml
@@ -7,17 +8,18 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class PeakDetectionParams(BaseModel):
     model_config = ConfigDict(extra="allow")
-    # Add relevant parameters here later based on research
+    sigma_low: float = 2.0
+    sigma_high: float = 6.0
+    min_distance: int = 5
+    threshold_abs: float = 35.0
 
 
 class MeshGenerationParams(BaseModel):
     model_config = ConfigDict(extra="allow")
-    # e.g., resolution, smoothing
 
 
 class UVUnwrapParams(BaseModel):
     model_config = ConfigDict(extra="allow")
-    # e.g., overlapping margins
 
 
 class LocalPreConfig(BaseModel):
@@ -48,12 +50,32 @@ class DivisionMappingParams(BaseModel):
     new_track_cost: float = 25.0
 
 
+class DataExportParams(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    anterior: float = -200
+    posterior: float = 200
+    dorsal_on_right: bool = True
+    show_napari: bool = True
+
+
 class LocalPostConfig(BaseModel):
     reconstruct_3d: Reconstruct3DParams = Field(default_factory=Reconstruct3DParams)
     tracking: TrackingParams = Field(default_factory=TrackingParams)
     division_mapping: DivisionMappingParams = Field(
         default_factory=DivisionMappingParams
     )
+    data_export: DataExportParams = Field(default_factory=DataExportParams)
+
+
+class Condition(Enum):
+    WILD_TYPE = "wt"
+    BCD = "bcd"
+    TRK = "trk"
+
+
+class MetadataConfig(BaseModel):
+    um_per_px: float = 0.58275
+    condition: Condition = Condition.WILD_TYPE
 
 
 class PipelineConfig(BaseModel):
@@ -62,6 +84,7 @@ class PipelineConfig(BaseModel):
 
     local_pre: LocalPreConfig = Field(default_factory=LocalPreConfig)
     local_post: LocalPostConfig = Field(default_factory=LocalPostConfig)
+    metadata: MetadataConfig = Field(default_factory=MetadataConfig)
 
     @classmethod
     def load(cls, path: Path | str) -> "PipelineConfig":

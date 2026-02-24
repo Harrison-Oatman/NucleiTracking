@@ -46,11 +46,10 @@ def run_peak_detection(dataset: Path, config: PipelineConfig):
 
     arr = tifffile.imread(final_img_path)
 
-    # Parameters could be pulled from config in the future
-    sigma_low = config.local_pre.peak_detection.model_extra.get("sigma_low", 2)
-    sigma_high = config.local_pre.peak_detection.model_extra.get("sigma_high", 6)
-    min_distance = config.local_pre.peak_detection.model_extra.get("min_distance", 5)
-    threshold_abs = config.local_pre.peak_detection.model_extra.get("threshold_abs", 35)
+    sigma_low = config.local_pre.peak_detection.sigma_low
+    sigma_high = config.local_pre.peak_detection.sigma_high
+    min_distance = config.local_pre.peak_detection.min_distance
+    threshold_abs = config.local_pre.peak_detection.threshold_abs
 
     print("  Applying Difference of Gaussians...")
     dog = difference_of_gaussians(arr, sigma_low, sigma_high)
