@@ -1,22 +1,21 @@
 import argparse
 import logging
-import tifffile
-import numpy as np
-from tqdm import tqdm
-import time
 import multiprocessing
+import time
 from pathlib import Path
-import natsort
-from skimage.filters import difference_of_gaussians
-from skimage.feature import peak_local_max
-from skimage.segmentation import watershed
-from scipy.ndimage import distance_transform_edt
-import pandas as pd
 
+import natsort
+import numpy as np
+import pandas as pd
+import tifffile
+from scipy.ndimage import distance_transform_edt
+from skimage.feature import peak_local_max
+from skimage.filters import difference_of_gaussians
+from skimage.segmentation import watershed
+from tqdm import tqdm
 
 
 class Peak:
-
     def __init__(self, label, loc, val):
         self.label = int(label)
         self.loc = loc
@@ -28,7 +27,12 @@ class Peak:
 
 def read_peak_csv(file):
     df = pd.read_csv(file)
-    return {int(row["Unnamed: 0"]): Peak(row["Unnamed: 0"], np.array([row["z"], row["y"], row["x"]]), row["val"]) for i, row in df.iterrows()}
+    return {
+        int(row["Unnamed: 0"]): Peak(
+            row["Unnamed: 0"], np.array([row["z"], row["y"], row["x"]]), row["val"]
+        )
+        for i, row in df.iterrows()
+    }
 
 
 def main():
@@ -55,14 +59,15 @@ def main():
     if not w_path.exists():
         w_path.mkdir()
 
-        files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+        files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
         print(f"found {len(files)} tif files")
 
         with multiprocessing.Pool(processes=nprocs) as pool:
-
             jobs = []
             for i, file in tqdm(enumerate(files)):
-                job = pool.apply_async(apply_watershed, (i, str(file.absolute()), args, w_path))
+                job = pool.apply_async(
+                    apply_watershed, (i, str(file.absolute()), args, w_path)
+                )
                 jobs.append(job)
 
             peak_maps = [job.get() for job in jobs]
@@ -70,7 +75,6 @@ def main():
     else:
         peak_maps = []
         for file in tqdm(natsort.natsorted(w_path.glob("*_peaks.csv"))):
-
             peak_maps.append(read_peak_csv(file))
 
     watershed_files = natsort.natsorted([f for f in w_path.glob("*.tif")])
@@ -79,7 +83,7 @@ def main():
         jobs = []
         for i, file in tqdm(enumerate(watershed_files[:-1])):
             this_pm = peak_maps[i].copy()
-            next_pm = peak_maps[i+1].copy()
+            next_pm = peak_maps[i + 1].copy()
 
             job = pool.apply_async(process_points, (i, file, next_pm, this_pm, args))
             jobs.append(job)
@@ -91,10 +95,20 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("dog keywords")
     argparser.add_argument("--sigma_low", default=2, type=float)
@@ -119,7 +133,7 @@ def process_points(i, w_file, next_pts, this_pts, args):
     next_pos = [this_pts[l] for l in next_labels]
 
     df = {
-        "ID": [f"{i+1:03d}:{k:05d}" for k in next_pts.keys()],
+        "ID": [f"{i + 1:03d}:{k:05d}" for k in next_pts.keys()],
         "z": [p.z for p in next_pts.values()],
         "y": [p.y for p in next_pts.values()],
         "x": [p.x for p in next_pts.values()],
@@ -154,12 +168,19 @@ def process_points(i, w_file, next_pts, this_pts, args):
 def apply_watershed(i, infile, args, outpath) -> dict:
     volume = tifffile.imread(infile)
 
-    dog = difference_of_gaussians(volume, args.sigma_low, args.sigma_high)  # apply band pass filter
+    dog = difference_of_gaussians(
+        volume, args.sigma_low, args.sigma_high
+    )  # apply band pass filter
 
     # find local peaks
-    w_peaks = peak_local_max(dog, min_distance=args.min_distance, threshold_abs=args.seed_threshold)
+    w_peaks = peak_local_max(
+        dog, min_distance=args.min_distance, threshold_abs=args.seed_threshold
+    )
     intensities = dog[w_peaks[:, 0], w_peaks[:, 1], w_peaks[:, 2]]
-    peaks_map = {i: Peak(i, p, v) for i, (p, v) in enumerate(zip(w_peaks, intensities))}
+    peaks_map = {
+        i: Peak(i, p, v)
+        for i, (p, v) in enumerate(zip(w_peaks, intensities, strict=False))
+    }
     peaks_map[0] = Peak(0, np.array([0, 0, 0]), 0)
 
     logging.info(f"found {len(peaks_map)} peaks")
@@ -179,7 +200,10 @@ def apply_watershed(i, infile, args, outpath) -> dict:
 
     tifffile.imwrite(outpath / f"{i:03d}.tif", w)
 
-    df = pd.DataFrame({"z": p_locs[:, 0], "y": p_locs[:, 1], "x": p_locs[:, 2], "val": p_vals}, index=p_labs)
+    df = pd.DataFrame(
+        {"z": p_locs[:, 0], "y": p_locs[:, 1], "x": p_locs[:, 2], "val": p_vals},
+        index=p_labs,
+    )
     df.to_csv(outpath / f"{i:03d}_peaks.csv")
 
     return peaks_map

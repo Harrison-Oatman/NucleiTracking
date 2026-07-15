@@ -1,14 +1,17 @@
-import h5py
-from pathlib import Path
-import multiprocessing
 import logging
+import multiprocessing
+from pathlib import Path
+
+import h5py
 
 
 def main(i):
-    filename = Path(f"/mnt/ceph/users/hoatman/lightsheet_20241030/raw/stack_0_channel_0_obj_left/Cam_left_0000{i}.lux.h5")
+    filename = Path(
+        f"/mnt/ceph/users/hoatman/lightsheet_20241030/raw/stack_0_channel_0_obj_left/Cam_left_0000{i}.lux.h5"
+    )
 
-    with h5py.File(filename, 'r') as h5_file:
-        raw_vol = h5_file['/Data'][:]
+    with h5py.File(filename, "r") as h5_file:
+        raw_vol = h5_file["/Data"][:]
 
     logging.info(raw_vol.shape)
 

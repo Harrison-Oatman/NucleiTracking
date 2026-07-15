@@ -1,13 +1,14 @@
 import argparse
 import logging
-import tifffile
+import multiprocessing
+import time
+from pathlib import Path
+
 import numpy as np
+import tifffile
+import torch
 from cellpose import models
 from tqdm import tqdm
-import torch
-import time
-import multiprocessing
-from pathlib import Path
 
 
 def main():
@@ -44,7 +45,9 @@ def main():
     with multiprocessing.Pool(processes=nprocs) as pool:
         jobs = []
         for i, chunk in enumerate(chunks):
-            job = pool.apply_async(process_chunk, (i, chunk, args, outpath, infile, axes))
+            job = pool.apply_async(
+                process_chunk, (i, chunk, args, outpath, infile, axes)
+            )
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -57,16 +60,22 @@ def main():
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input", dest="input", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i", "--input", dest="input", help="path to raw file to process", default=None
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("cellpose keywords")
     argparser.add_argument("--use_gpu", action="store_true")
     argparser.add_argument("--do_3d", action="store_true")
     argparser.add_argument("--model", default="nuclei")
-    argparser.add_argument("--diam", default=9., type=float)
+    argparser.add_argument("--diam", default=9.0, type=float)
     argparser.add_argument("-c", "--cellprob_thresh", default=0.0, type=float)
     argparser.add_argument("-f", "--flow_thresh", default=0.4, type=float)
     argparser.add_argument("-t", "--top_percentile", default=99.99, type=float)
@@ -116,23 +125,29 @@ def handle_axes(raw, args):
 def process_chunk(rank, chunk, args, outpath, infile, axes):
     torch.cuda.set_device(rank % torch.cuda.device_count())
     device = torch.device(f"cuda:{torch.cuda.current_device()}")
-    model = models.CellposeModel(gpu=args.use_gpu, model_type=args.model, diam_mean=30., device=device)
+    model = models.CellposeModel(
+        gpu=args.use_gpu, model_type=args.model, diam_mean=30.0, device=device
+    )
 
-    print(f"starting process {rank} on {torch.cuda.current_device()} with chunk shape {chunk.shape}")
+    print(
+        f"starting process {rank} on {torch.cuda.current_device()} with chunk shape {chunk.shape}"
+    )
 
     out = []
 
     for c in tqdm(chunk, desc=f"process {rank}"):
-        results = model.eval(c,
-                             channels=args.channels,
-                             channel_axis=-3,
-                             batch_size=args.batch_size,
-                             diameter=args.diam,
-                             cellprob_threshold=args.cellprob_thresh,
-                             flow_threshold=args.flow_thresh,
-                             do_3D=args.do_3d,
-                             stitch_threshold=args.stitch_threshold,
-                             normalize={"percentile": [1, args.top_percentile]})
+        results = model.eval(
+            c,
+            channels=args.channels,
+            channel_axis=-3,
+            batch_size=args.batch_size,
+            diameter=args.diam,
+            cellprob_threshold=args.cellprob_thresh,
+            flow_threshold=args.flow_thresh,
+            do_3D=args.do_3d,
+            stitch_threshold=args.stitch_threshold,
+            normalize={"percentile": [1, args.top_percentile]},
+        )
 
         out.append(results[0])
 

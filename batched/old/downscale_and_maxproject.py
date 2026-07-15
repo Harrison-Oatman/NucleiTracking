@@ -1,10 +1,11 @@
-import skimage
-import numpy as np
-import tifffile
 import argparse
 import logging
 import multiprocessing
 from pathlib import Path
+
+import numpy as np
+import skimage
+import tifffile
 
 
 def process_file(infile, output_dir):
@@ -48,19 +49,25 @@ def main():
     (output_dir / "downscaled").mkdir(exist_ok=True, parents=True)
     (output_dir / "mips").mkdir(exist_ok=True, parents=True)
 
-    files = sorted([f for f in input_dir.iterdir() if f.suffix == '.tif'])
+    files = sorted([f for f in input_dir.iterdir() if f.suffix == ".tif"])
     nprocs = args.nprocs
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-        jobs = [pool.apply_async(process_file, (infile, output_dir)) for infile in files]
+        jobs = [
+            pool.apply_async(process_file, (infile, output_dir)) for infile in files
+        ]
 
         for job in jobs:
             job.get()
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="script to downscale and maxproject tifs from a trajectory")
-    parser.add_argument("-i", "--input_dir", help="process all tifs in directory", default=None)
+    parser = argparse.ArgumentParser(
+        description="script to downscale and maxproject tifs from a trajectory"
+    )
+    parser.add_argument(
+        "-i", "--input_dir", help="process all tifs in directory", default=None
+    )
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
     parser.add_argument("--nprocs", help="number of processes", default=None, type=int)

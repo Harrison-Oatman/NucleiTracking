@@ -1,15 +1,14 @@
-import skimage
-import numpy as np
-import tifffile
 import argparse
 import logging
 import multiprocessing
 from pathlib import Path
-from tqdm import tqdm
 
+import numpy as np
 import scipy.ndimage as ndi
+import skimage
+import tifffile
 from scipy.ndimage._ni_support import _normalize_sequence
-
+from tqdm import tqdm
 
 # def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
 #     """Rolling ball filter implemented with morphology operations
@@ -108,22 +107,28 @@ def main():
     output_dir = Path(args.output)
     assert output_dir.exists(), f"directory not found: {output_dir}"
 
-    files = sorted([f for f in input_dir.iterdir() if f.suffix == '.tif'])
+    files = sorted([f for f in input_dir.iterdir() if f.suffix == ".tif"])
     nprocs = args.nprocs
 
     # for infile in files:
     #     process_file(infile, output_dir)
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-        jobs = [pool.apply_async(process_file, (infile, output_dir)) for infile in files]
+        jobs = [
+            pool.apply_async(process_file, (infile, output_dir)) for infile in files
+        ]
 
         for job in jobs:
             job.get()
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="script to copy and process Daniel's data")
-    parser.add_argument("-i", "--input_dir", help="process all tifs in directory", default=None)
+    parser = argparse.ArgumentParser(
+        description="script to copy and process Daniel's data"
+    )
+    parser.add_argument(
+        "-i", "--input_dir", help="process all tifs in directory", default=None
+    )
     parser.add_argument("-o", "--output", help="results directory", default=None)
     parser.add_argument("-l", "--level", default="INFO")
     parser.add_argument("--nprocs", help="number of processes", default=None, type=int)

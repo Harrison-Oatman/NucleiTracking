@@ -1,0 +1,130 @@
+[project]
+name = "nucleitracking"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Harrison-Oatman", email = "46121828+Harrison-Oatman@users.noreply.github.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "blender-tissue-cartography>=0.0.5",
+    "natsort>=8.4.0",
+    "networkx>=3.5",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.4",
+    "pydantic-settings>=2.13.1",
+    "pyyaml>=6.0.3",
+    "tables>=3.10.2",
+    "scipy",
+    "tifffile",
+    "tqdm",
+    "dtaidistance>=2.4.0",
+    "openpyxl[local]>=3.1.5",
+    "colorcet>=3.1.0",
+]
+
+[project.optional-dependencies]
+local = [
+    "colorcet>=3.1.0",
+    "libigl>=2.6.1",
+    "lxml>=6.0.2",
+    "napari[pyqt5]>=0.6.6",
+    "pymeshlab",
+    "scikit-image>=0.25.2",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+]
+remote = [
+    "cellpose",
+]
+dev = [
+    "nucleitracking[remote]",
+    "nucleitracking[local]; sys_platform != 'linux'",
+]
+cu121 = [
+    "torch>=2.5.1",
+    "torchvision==0.20.1+cu121",
+    "nucleitracking[remote]"
+]
+cu128 = [
+    "torch>=2.9.1",
+    "torchvision==0.24.1+cu128",
+    "nucleitracking[remote]"
+]
+
+[tool.uv]
+conflicts = [
+  [
+    { extra = "cu121" },
+    { extra = "cu128" },
+  ],
+]
+#
+#required-environments = [
+#    "sys_platform == 'manylinux_2_28' and platform_machine == 'x86_64'"
+#]
+
+[tool.uv.sources]
+torch = [
+  { index = "pytorch-cu121", extra = "cu121" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+torchvision = [
+  { index = "pytorch-cu121", extra = "cu121" },
+  { index = "pytorch-cu128", extra = "cu128" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cu121"
+url = "https://download.pytorch.org/whl/cu121"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[dependency-groups]
+docs = [
+    "furo>=2025.9.25",
+    "myst-parser>=4.0.1",
+    "sphinx>=8.2.3",
+    "sphinx-markdown-builder>=0.6.8",
+]
+test = [
+    "pytest>=8.4.2",
+]
+
+dev = [
+    {include-group = "docs"},
+    {include-group = "test"},
+    "pandas-stubs>=2.3.2.250926",
+    "ruff>=0.14.2",
+    "scipy-stubs>=1.16.2.4",
+    "pre-commit",
+    "nbstripout"
+]
+
+[project.scripts]
+nucleitracking = "nucleitracking:main"
+pipeline = "nucleitracking.run_pipeline:main"
+correct-embryo = "nucleitracking.correct_embryo:main"
+
+[build-system]
+requires = ["uv_build>=0.8.14,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.ruff.lint]
+extend-select = [
+  "ARG",      # flake8-unused-arguments
+  "C4",       # flake8-comprehensions
+  "EM",       # flake8-errmsg
+  "I",        # isort
+  "ICN",      # flake8-import-conventions
+  "NPY",      # NumPy specific rules
+  "PGH",      # pygrep-hooks
+  "RUF",      # Ruff-specific
+  "SIM",      # flake8-simplify
+  "UP",       # pyupgrade
+]

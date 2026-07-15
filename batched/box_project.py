@@ -1,19 +1,20 @@
 import argparse
 import logging
-import tifffile
+import multiprocessing
+import time
+from pathlib import Path
+
+import natsort
 import numpy as np
+import tifffile
+import torch
 from cellpose import models
 from tqdm import tqdm
-import torch
-import time
-import multiprocessing
-from pathlib import Path
-import natsort
 
 
 def main():
     try:
-        multiprocessing.set_start_method('spawn')
+        multiprocessing.set_start_method("spawn")
     except RuntimeError:
         pass
 
@@ -38,7 +39,7 @@ def main():
     (outpath / "all_vals").mkdir(exist_ok=True)
     (outpath / "all_locs").mkdir(exist_ok=True)
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
 
     nprocs = args.nprocs
@@ -50,7 +51,9 @@ def main():
 
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, str(file.absolute()), args, str(outpath.absolute())))
+            job = pool.apply_async(
+                process_file, (i, str(file.absolute()), args, str(outpath.absolute()))
+            )
             jobs.append(job)
 
         vals_and_locs = [job.get() for job in jobs]
@@ -63,14 +66,26 @@ def main():
         l_i = np.stack([l[i] for l in locs], 0)
 
         tifffile.imwrite(outpath / "all_vals" / f"all_vals_{i}.tif", v_i)
-        tifffile.imwrite(outpath / "all_locs" / f"all_locs_{i}.tif", np.array(l_i, dtype=int))
+        tifffile.imwrite(
+            outpath / "all_locs" / f"all_locs_{i}.tif", np.array(l_i, dtype=int)
+        )
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
 
     argparser.add_argument_group("position keywords")
 
@@ -103,25 +118,25 @@ def process_file(j, infile, args, outpath):
     ls = []
     vs = []
 
-    ls.append(np.argmax(raw[:args.z_lo], axis=0))
-    vs.append(np.max(raw[:args.z_lo], axis=0))
+    ls.append(np.argmax(raw[: args.z_lo], axis=0))
+    vs.append(np.max(raw[: args.z_lo], axis=0))
 
-    ls.append(np.argmax(raw[args.z_hi:], axis=0) + args.z_hi)
-    vs.append(np.max(raw[args.z_hi:], axis=0))
+    ls.append(np.argmax(raw[args.z_hi :], axis=0) + args.z_hi)
+    vs.append(np.max(raw[args.z_hi :], axis=0))
 
-    ls.append(np.argmax(raw[:, :args.y_lo], axis=1))
-    vs.append(np.max(raw[:, :args.y_lo], axis=1))
+    ls.append(np.argmax(raw[:, : args.y_lo], axis=1))
+    vs.append(np.max(raw[:, : args.y_lo], axis=1))
 
-    ls.append(np.argmax(raw[:, args.y_hi:], axis=1) + args.y_hi)
-    vs.append(np.max(raw[:, args.y_hi:], axis=1))
+    ls.append(np.argmax(raw[:, args.y_hi :], axis=1) + args.y_hi)
+    vs.append(np.max(raw[:, args.y_hi :], axis=1))
 
-    ls.append(np.argmax(raw[:, :, :args.x_lo], axis=2))
-    vs.append(np.max(raw[:, :, :args.x_lo], axis=2))
+    ls.append(np.argmax(raw[:, :, : args.x_lo], axis=2))
+    vs.append(np.max(raw[:, :, : args.x_lo], axis=2))
 
-    ls.append(np.argmax(raw[:, :, args.x_hi:], axis=2) + args.x_hi)
-    vs.append(np.max(raw[:, :, args.x_hi:], axis=2))
+    ls.append(np.argmax(raw[:, :, args.x_hi :], axis=2) + args.x_hi)
+    vs.append(np.max(raw[:, :, args.x_hi :], axis=2))
 
-    for i, (v, l) in enumerate(zip(vs, ls)):
+    for i, (v, l) in enumerate(zip(vs, ls, strict=False)):
         val_outfile = outpath / "vals" / f"{infile.stem}_box_project_{i}.tif"
         loc_outfile = outpath / "locs" / f"{infile.stem}_box_project_{i}_locs.tif"
 

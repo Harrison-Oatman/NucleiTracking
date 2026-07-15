@@ -1,18 +1,19 @@
 import argparse
 import logging
-import tifffile
-import numpy as np
-from tqdm import tqdm
-import time
 import multiprocessing
+import time
 from pathlib import Path
-import natsort
-from skimage.filters import difference_of_gaussians, gaussian
-from skimage.feature import peak_local_max
-from scipy.ndimage import maximum_filter
-import pandas as pd
 from tomllib import load
+
+import natsort
+import numpy as np
+import pandas as pd
 import skimage
+import tifffile
+from scipy.ndimage import maximum_filter
+from skimage.feature import peak_local_max
+from skimage.filters import difference_of_gaussians, gaussian
+from tqdm import tqdm
 
 
 def main():
@@ -45,17 +46,19 @@ def main():
     if not tmpdir.exists():
         tmpdir.mkdir()
 
-    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == '.tif'])
+    files = natsort.natsorted([f for f in inpath.iterdir() if f.suffix == ".tif"])
     print(f"found {len(files)} tif files")
 
     nprocs = args.nprocs
     start = time.time()
 
     with multiprocessing.Pool(processes=nprocs) as pool:
-
         jobs = []
         for i, file in tqdm(enumerate(files)):
-            job = pool.apply_async(process_file, (i, str(file.absolute()), dogs, min_distances, args, tmpdir))
+            job = pool.apply_async(
+                process_file,
+                (i, str(file.absolute()), dogs, min_distances, args, tmpdir),
+            )
             jobs.append(job)
 
         # Wait for all jobs to finish
@@ -76,10 +79,20 @@ def process_toml(fp):
 
 
 def process_cli() -> argparse.Namespace:
-    argparser = argparse.ArgumentParser(description="script to process raw data from tif")
+    argparser = argparse.ArgumentParser(
+        description="script to process raw data from tif"
+    )
 
-    argparser.add_argument("-i", "--input_dir", dest="input_dir", help="path to raw file to process", default=None)
-    argparser.add_argument("-o", "--output", dest="output", help="results directory", default=None)
+    argparser.add_argument(
+        "-i",
+        "--input_dir",
+        dest="input_dir",
+        help="path to raw file to process",
+        default=None,
+    )
+    argparser.add_argument(
+        "-o", "--output", dest="output", help="results directory", default=None
+    )
     argparser.add_argument("-t", "--toml", help="path to sweep toml", default=None)
 
     argparser.add_argument("--threshold_abs", default=1, type=float)
@@ -106,7 +119,6 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
     dfs = []
 
     for dname, (siglo, sighi) in dogs.items():
-
         v = difference_of_gaussians(volume, siglo, sighi)
         v_local = 100 * v / (maximum_filter(v, size=11) + 0.0001)
         # logging.info(f"v: {v.max()}")
@@ -124,23 +136,37 @@ def process_file(i, infile, dogs: dict, min_distances: dict, args, tmpdir):
                 xoff = np.arange(-1, 2)
                 maskarr = np.array([0, 0, 0])
                 maskarr[axis] = 1
-                xrow = pts[:, np.newaxis, :] + xoff[np.newaxis, :, np.newaxis] * np.broadcast_arrays(maskarr, pts)[0][:,
-                                                                                 np.newaxis, :]
+                xrow = (
+                    pts[:, np.newaxis, :]
+                    + xoff[np.newaxis, :, np.newaxis]
+                    * np.broadcast_arrays(maskarr, pts)[0][:, np.newaxis, :]
+                )
                 xrow = np.moveaxis(xrow, -1, 0)
                 rowvals = v[*xrow]
-                subpx = (rowvals[:, 2] - rowvals[:, 0]) / (2 * (rowvals[:, 0] + rowvals[:, 2] - 2 * rowvals[:, 1]))
+                subpx = (rowvals[:, 2] - rowvals[:, 0]) / (
+                    2 * (rowvals[:, 0] + rowvals[:, 2] - 2 * rowvals[:, 1])
+                )
                 sublocs.append(subpx)
 
             sublocs = np.stack(sublocs, -1)
 
             subloc_pts = pts + sublocs
 
-            pts = pts*r
-            subloc_pts = subloc_pts*r
+            pts = pts * r
+            subloc_pts = subloc_pts * r
 
-            df = pd.DataFrame({"z": subloc_pts[:, 0], "y": subloc_pts[:, 1], "x": subloc_pts[:, 2],
-                               "zd": pts[:, 0], "yd": pts[:, 1], "xd": pts[:, 2], "val": vals,
-                               "local": local_vals})
+            df = pd.DataFrame(
+                {
+                    "z": subloc_pts[:, 0],
+                    "y": subloc_pts[:, 1],
+                    "x": subloc_pts[:, 2],
+                    "zd": pts[:, 0],
+                    "yd": pts[:, 1],
+                    "xd": pts[:, 2],
+                    "val": vals,
+                    "local": local_vals,
+                }
+            )
             df["frame"] = i
             df["dog"] = dname
             df["min-distance"] = mname
