@@ -55,7 +55,9 @@ class PipelineRunner:
     def _run_local_post(self, dataset: Path):
         print(f"  [{dataset.name}] --- local_post ---")
         local_post.run_merge_centroids(dataset, self.config)
+        local_post.run_merge_3d_tracking(dataset, self.config)
         local_post.run_tracking(dataset, self.config)
         local_post.run_division_mapping(dataset, self.config)
+        local_post.run_set_cylindrical_coords(dataset, self.config)
         local_post.run_export_hdf5(dataset, self.config)
         local_post.run_napari_vis(dataset, self.config)

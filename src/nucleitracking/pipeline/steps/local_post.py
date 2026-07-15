@@ -122,16 +122,131 @@ def run_merge_centroids(dataset: Path, config: PipelineConfig):
     colors = [color_map[mesh] for mesh in new_centroids["mesh_name"]]
     viewer.add_points(
         new_centroids[["frame", "px_z", "px_y", "px_x"]].values,
-        name="Merged Centroids",
+        name=f"Merged Centroids {config.param_set_name}",
         properties={"mesh_name": new_centroids["mesh_name"]},
         face_color=colors,
         size=new_centroids["px_area"] ** 0.5,
         shading="spherical",
     )
 
+    napari.run()
+
     out_file = out_dir / "new_centroids.csv"
-    new_centroids.to_csv(out_file, index=False)
+    new_centroids.to_csv(out_file, index=True, index_label="ix")
     print(f"  Saved reconstructed 3D centroids to {out_file}")
+
+
+def run_merge_3d_tracking(dataset: Path, config: PipelineConfig):
+    """
+    Optionally merges 3D bounding-box segmentation centroids (from bbox_segment.sh)
+    into the reconstructed cloud produced by run_merge_centroids.
+
+    3D centroids are filtered to a frame window and edge-rejected before merging.
+    Pole-cell centroids live far from the UV surface, so they should not overlap
+    spatially with any existing 2D centroid; the spatial guard is a safety net only.
+    """
+    params = config.local_post.merge_3d_tracking
+    if not params.enabled:
+        return
+
+    out_dir = dataset / f"tracking_{config.param_set_name}"
+    merged_file = out_dir / "new_centroids.csv"
+    backup_file = out_dir / "new_centroids_pre_3d.csv"
+
+    if backup_file.exists():
+        print(f"[{dataset.name}] Merge 3D Tracking (Skipped: already applied)")
+        return
+
+    if not merged_file.exists():
+        print(f"  [Warning] {merged_file.name} not found — run merge_centroids first.")
+        return
+
+    csv_path = (
+        Path(params.csv_path) if params.csv_path else out_dir / "centroids_3d.csv"
+    )
+    if not csv_path.exists():
+        print(f"  [Error] 3D centroids file not found at {csv_path}")
+        return
+
+    print(f"[{dataset.name}] Merging 3D tracking centroids from {csv_path.name}...")
+
+    new_centroids = pd.read_csv(merged_file, index_col="ix")
+    centroids_3d = pd.read_csv(csv_path)
+
+    # ── Frame window filter ───────────────────────────────────────────────────
+    if params.start_frame is not None:
+        centroids_3d = centroids_3d[centroids_3d["timepoint"] >= params.start_frame]
+    if params.end_frame is not None:
+        centroids_3d = centroids_3d[centroids_3d["timepoint"] <= params.end_frame]
+
+    # ── Edge rejection ────────────────────────────────────────────────────────
+    if params.crop_shape is not None and params.edge_cutoff > 0:
+        z_max, _y_max, x_max = params.crop_shape
+        c = params.edge_cutoff
+        z_ok = (centroids_3d["crop_z"] >= c) & (centroids_3d["crop_z"] <= z_max - c)
+        # skip rejection near the upper y edge (open face of bounding box)
+        y_ok = centroids_3d["crop_y"] >= c
+        x_ok = (centroids_3d["crop_x"] >= c) & (centroids_3d["crop_x"] <= x_max - c)
+        centroids_3d = centroids_3d[z_ok & y_ok & x_ok]
+
+    if centroids_3d.empty:
+        print("  No 3D centroids remain after filtering — nothing merged.")
+        return
+
+    print(f"  {len(centroids_3d)} 3D centroids after filtering")
+
+    # get radius of 3d sphere with equal volume
+    centroids_3d["radius"] = (centroids_3d["area"] * (3 / (4 * np.pi))) ** (1 / 3)
+
+    # ── Map to shared column schema ───────────────────────────────────────────
+    centroids_3d_mapped = pd.DataFrame(
+        {
+            "frame": centroids_3d["timepoint"].values,
+            "px_z": centroids_3d["global_z"].values,
+            "px_y": centroids_3d["global_y"].values,
+            "px_x": centroids_3d["global_x"].values,
+            "intensity_mean": centroids_3d["intensity_mean"].values,
+            "intensity_std": centroids_3d["intensity_std"].values,
+            "mesh_name": centroids_3d["bbox_name"].values,
+            # UV columns: 0 so any nearby UV centroid wins; NaN where not applicable
+            "uv_distance_from_edge": 0.0,
+            "uv_v": np.nan,
+            "uv_u": np.nan,
+            "uv_z": np.nan,
+            "uv_area": np.nan,
+            "area_distortion": np.nan,
+            "px_area": np.pi
+            * centroids_3d["radius"] ** 2,  # surface area of sphere with equal volume
+        }
+    )
+
+    # ── Spatial deduplication: drop 3D centroids too close to existing ones ──
+    axes = ["px_z", "px_y", "px_x"]
+    to_drop = set()
+
+    for frame, group_3d in centroids_3d_mapped.groupby("frame"):
+        group_2d = new_centroids[new_centroids["frame"] == frame]
+        if group_2d.empty:
+            continue
+        distances = cdist(group_2d[axes].values, group_3d[axes].values)
+        close_cols = np.where((distances < params.max_merge_distance).any(axis=0))[0]
+        for col_idx in close_cols:
+            to_drop.add(group_3d.index[col_idx])
+
+    centroids_3d_mapped = centroids_3d_mapped.drop(index=to_drop)
+
+    # ── Concatenate and re-index ──────────────────────────────────────────────
+    result = pd.concat([new_centroids, centroids_3d_mapped], ignore_index=True)
+    result = result.reset_index(drop=True)
+    result["id_prev"] = result.index.astype(np.uint32)
+
+    new_centroids.to_csv(backup_file, index=True, index_label="ix")
+    result.to_csv(merged_file, index=True, index_label="ix")
+    print(
+        f"  {len(new_centroids)} -> {len(result)} centroids "
+        f"(+{len(result) - len(new_centroids)} from 3D, "
+        f"{len(to_drop)} discarded as duplicates)"
+    )
 
 
 def run_tracking(dataset: Path, config: PipelineConfig):
@@ -152,7 +267,7 @@ def run_tracking(dataset: Path, config: PipelineConfig):
         )
         return
 
-    centroids = pd.read_csv(centroids_path)
+    centroids = pd.read_csv(centroids_path, index_col="ix")
 
     # Filter frames based on user configuration
     if config.local_post.tracking.start_frame > 0:
@@ -178,7 +293,7 @@ def run_tracking(dataset: Path, config: PipelineConfig):
 
     # Save preliminary tracking results
     out_dir = dataset / f"tracking_{config.param_set_name}"
-    spots_df.to_csv(out_dir / "lap_tracked_spots.csv", index=False)
+    spots_df.to_csv(out_dir / "lap_tracked_spots.csv", index=True, index_label="ix")
     print(f"  Saved LAP tracked spots to {out_dir / 'lap_tracked_spots.csv'}")
 
 
@@ -289,8 +404,9 @@ def run_division_mapping(dataset: Path, config: PipelineConfig):
     """
     spots_df coercion
     """
-    spots_df = pd.read_csv(spots_path)
+    spots_df = pd.read_csv(spots_path, index_col="ix")
     spots_df = spots_df.rename(columns={"linear_track_id": "track_id"})
+    print(spots_df.index)
 
     spots_df["parent_id"] = -1
     track_id_most_recent = {}
@@ -321,7 +437,7 @@ def run_division_mapping(dataset: Path, config: PipelineConfig):
     print(final_spots_df.groupby("track_id")["tracklet_id"].nunique().value_counts())
 
     # Save the final results ready for HDF5 extraction!
-    final_spots_df.to_csv(out_dir / "final_lineages.csv", index=False)
+    final_spots_df.to_csv(out_dir / "final_lineages.csv", index=True, index_label="ix")
     print(f"  Saved final lineages to {out_dir / 'final_lineages.csv'}")
 
 
@@ -449,7 +565,8 @@ def run_dtw(dataset: Path, config: PipelineConfig):
     print(f"[{dataset.name}] Running DTW alignment...")
 
     spots_df = pd.read_csv(
-        dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv"
+        dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv",
+        index_col="ix",
     )
     spots_df = warp_df(spots_df, n=100)
 
@@ -457,31 +574,17 @@ def run_dtw(dataset: Path, config: PipelineConfig):
         dataset
         / f"tracking_{config.param_set_name}"
         / "final_lineages_with_pseudotime.csv",
-        index=False,
+        index=True,
+        index_label="ix",
     )
     print(
         f"  Saved final lineages with pseudotime to {dataset / f'tracking_{config.param_set_name}' / 'final_lineages_with_pseudotime.csv'}"
     )
 
 
-def get_times_from_json(json_path):
-    frame_times = defaultdict(list)
-
-    json_path = Path(json_path)
-    for j_file in natsorted(json_path.glob("*.json")):
-        with open(j_file) as f:
-            data = json.load(f)
-            frame = int(j_file.stem[-3:])
-            timestamps = data["processingInformation"]["acquisition"][0]["time_stamps"]
-
-            times_seconds = [datetime.fromisoformat(t).timestamp() for t in timestamps]
-            frame_times[frame].append(np.mean(times_seconds))
-
-    mean_frame_times = {frame: np.mean(times) for frame, times in frame_times.items()}
-    return mean_frame_times
-
-
-def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
+def get_cylindrical_coords(
+    df: pd.DataFrame, config: PipelineConfig, viewer: napari.Viewer | None = None
+) -> pd.DataFrame:
     """
     conversions
     """
@@ -495,12 +598,6 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
     df["radius"] = (df["area"] / np.pi) ** (1 / 2)
     df["distance_from_surface"] = df["uv_z"] - 12
 
-    """
-    Cylindrical coordinates calculation
-    - only ap position and theta are calculated, not radius
-    - instead, distance_from_surface should be used
-    """
-
     pos = np.array(df[["x", "y", "z"]])
     pca = PCA(n_components=3)
     transformed_data = pca.fit_transform(pos)
@@ -508,12 +605,18 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
     if config.local_post.data_export.show_napari:
         # run napari to allow the user to set anterior and posterior from PCA
         viewer = napari.Viewer()
+
+    if viewer is not None:
         viewer.add_points(
             transformed_data[df["frame"] == df["frame"].max()],
             size=5,
             shading="spherical",
+            name=f"[{config.param_set_name}] Final Timepoint in PCA Space",
         )
-        napari.run()
+
+    df["pc1"] = transformed_data[:, 0]
+    df["pc2"] = transformed_data[:, 1]
+    df["pc3"] = transformed_data[:, 2]
 
     # calculate AP position, and other details
     a = config.local_post.data_export.anterior
@@ -545,11 +648,66 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
     if reorder:
         df["theta"] = -df["theta"]
 
+    return df
+
+
+def run_set_cylindrical_coords(
+    dataset: Path, config: PipelineConfig, viewer: napari.Viewer | None = None
+):
+    print(f"[{dataset.name}] Setting cylindrical coordinates...")
+    out_file = dataset / f"tracking_{config.param_set_name}" / "cylindrical_coords.csv"
+
+    if out_file.exists():
+        print(
+            f"  [Warning] cylindrical coords processed dataset already exists at {out_file}. Skipping cylindrical coordinate calculation."
+        )
+        return
+
+    lineages_path = dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv"
+    if not lineages_path.exists():
+        print(
+            f"  [Warning] Final lineages file not found at {lineages_path}. Please run division mapping first. Skipping cylindrical coordinate calculation."
+        )
+        return
+
+    spots_df = pd.read_csv(
+        lineages_path,
+        index_col="ix",
+    )
+    print(spots_df.index)
+
+    updated_df = get_cylindrical_coords(spots_df, config, viewer=viewer)
+
+    updated_df.to_csv(out_file, index=True, index_label="ix")
+    print(f"  Saved cylindrical coordinates to {out_file}")
+
+
+def get_times_from_json(json_path):
+    frame_times = defaultdict(list)
+
+    json_path = Path(json_path)
+    for j_file in natsorted(json_path.glob("*.json")):
+        with open(j_file) as f:
+            data = json.load(f)
+            frame = int(j_file.stem[-3:])
+            timestamps = data["processingInformation"]["acquisition"][0]["time_stamps"]
+
+            times_seconds = [datetime.fromisoformat(t).timestamp() for t in timestamps]
+            frame_times[frame].append(np.mean(times_seconds))
+
+    mean_frame_times = {frame: np.mean(times) for frame, times in frame_times.items()}
+    return mean_frame_times
+
+
+def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
     """
     Timing calculations
     """
 
     frame_map = get_times_from_json(config.dataset / "json")
+    print(df["frame"].unique())
+    print(frame_map)
+    print([k for k, v in frame_map.items() if pd.isna(v)])
     start_time = min(frame_map.values())
 
     df["time"] = (df["frame"].map(frame_map) - start_time) / 60
@@ -616,7 +774,10 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
 
     print(df.columns)
 
+    df["id_kept"] = df.index
+
     keep = [
+        "id_kept",
         "time_since_nc11",
         "frame",
         "z",
@@ -646,12 +807,9 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
         "tracklet_id",
         "parent_id",
         "n_children",
-        "AP_raw",
-        "AP_um",
-        "AP_um_centered",
-        "um_from_anterior",
-        "um_from_posterior",
-        "distance_to_pole",
+        "pc1",
+        "pc2",
+        "pc3",
         "time",
         "problematic",
         "pseudotime",
@@ -664,7 +822,9 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
 def run_export_hdf5(dataset: Path, config: PipelineConfig):
     print(f"[{dataset.name}] Exporting to HDF5...")
     out_file = (
-        dataset / f"tracking_{config.param_set_name}" / "final_lineages_processed.h5"
+        dataset
+        / f"tracking_{config.param_set_name}"
+        / f"{config.param_set_name}_spots.h5"
     )
 
     if out_file.exists():
@@ -673,13 +833,25 @@ def run_export_hdf5(dataset: Path, config: PipelineConfig):
         )
         return
 
-    spots_df = pd.read_csv(
-        dataset / f"tracking_{config.param_set_name}" / "final_lineages.csv"
+    spots_df_path = (
+        dataset / f"tracking_{config.param_set_name}" / "cylindrical_coords.csv"
     )
+
+    if not spots_df_path.exists():
+        print(
+            f"  [Warning] Cylindrical coords CSV not found at {spots_df_path}. Please run set_cylindrical_coords first. Skipping export."
+        )
+        return
+
+    spots_df = pd.read_csv(
+        spots_df_path,
+        index_col="ix",
+    )
+    print(spots_df.index)
 
     final_df = postprocess_spots_df(spots_df, config)
 
-    final_df.to_hdf(out_file, key="lineages", index=False)
+    final_df.to_hdf(out_file, key="lineages", index=True)
     print(f"  Saved processed lineages to {out_file}")
 
 
