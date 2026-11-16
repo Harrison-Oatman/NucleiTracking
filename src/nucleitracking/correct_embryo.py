@@ -26,6 +26,9 @@ Optional flags
     Skip frames at or below N before opening the viewer.  Defaults to the
     value of ``local_post.tracking.start_frame`` from the config (or 0 when
     using --spots directly).
+--export-only
+    Replay the latest corrections and write the corrected HDF5 without opening
+    the viewer (same output as Shift+E).
 """
 
 import argparse
@@ -64,9 +67,16 @@ def main():
         ),
     )
 
+    parser.add_argument(
+        "--export-only",
+        action="store_true",
+        help="Write the corrected HDF5 from the latest corrections, without a viewer.",
+    )
+
     args = parser.parse_args()
 
     # Deferred imports so --help works without local extras installed.
+    from .corrections import export_latest_corrections
     from .corrections import main as run_corrections
     from .pipeline.config import PipelineConfig
 
@@ -103,6 +113,11 @@ def main():
     print(f"Corrections:  {corrections_dir}")
     print(f"Export path:  {export_path}")
     print(f"First frame:  {first_frame}")
+
+    if args.export_only:
+        export_latest_corrections(spots_path, corrections_dir, export_path, first_frame)
+        print(f"Exported corrected spots to {export_path}")
+        return
 
     run_corrections(
         spots_path=spots_path,

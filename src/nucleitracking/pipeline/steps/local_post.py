@@ -14,8 +14,12 @@ from scipy.spatial.distance import cdist
 from sklearn.decomposition import PCA
 from tqdm import tqdm
 
-from nucleitracking.models.division_tracking import map_divisions
+from nucleitracking.models.division_tracking import (
+    map_divisions,
+    map_divisions_hypotheses,
+)
 from nucleitracking.models.lap_tracking import run_lap_tracking
+from nucleitracking.models.motion_tracking import run_motion_tracking
 from nucleitracking.pipeline.config import PipelineConfig
 
 
@@ -256,7 +260,10 @@ def run_tracking(dataset: Path, config: PipelineConfig):
         print(f"[{dataset.name}] LAP Tracking (Skipped: {out_file.name} exists)")
         return
 
-    print(f"[{dataset.name}] Running LAP Tracking...")
+    print(
+        f"[{dataset.name}] Running LAP Tracking "
+        f"(motion model: {config.local_post.tracking.motion_model})..."
+    )
 
     # Load 3D centroids generated from the local post-processing Reconstruction step
     # For now, we assume a standard name
@@ -284,12 +291,26 @@ def run_tracking(dataset: Path, config: PipelineConfig):
             ~centroids["frame"].isin(config.local_post.tracking.skip_frames)
         ]
 
-    # Run the new Python LAP tracker instead of TrackMate
-    spots_df, _graph = run_lap_tracking(
-        centroids,
-        max_distance=config.local_post.tracking.search_radius,
-        max_gap_frames=config.local_post.tracking.max_gap_frames,
-    )
+    params = config.local_post.tracking
+    if params.motion_model == "velocity":
+        json_dir = dataset / "json"
+        frame_times = get_times_from_json(json_dir) if json_dir.exists() else None
+        spots_df, _graph = run_motion_tracking(
+            centroids,
+            max_distance=params.search_radius,
+            max_gap_frames=params.max_gap_frames,
+            frame_times=frame_times,
+            velocity_weight=params.velocity_weight,
+        )
+    elif params.motion_model == "nearest_neighbor":
+        spots_df, _graph = run_lap_tracking(
+            centroids,
+            max_distance=params.search_radius,
+            max_gap_frames=params.max_gap_frames,
+        )
+    else:
+        msg = f"Unknown tracking.motion_model: {params.motion_model!r}"
+        raise ValueError(msg)
 
     # Save preliminary tracking results
     out_dir = dataset / f"tracking_{config.param_set_name}"
@@ -306,7 +327,10 @@ def interpolate_spots(spots_df: pd.DataFrame):
     spots_df["frame_gap"] = spots_df["frame"] - spots_df["parent_id"].map(
         spots_df["frame"]
     )
-    spots_df["is_interpolated"] = False
+    # keep flags from an earlier pass (division mapping re-interpolates)
+    if "is_interpolated" not in spots_df.columns:
+        spots_df["is_interpolated"] = False
+    spots_df["is_interpolated"] = spots_df["is_interpolated"].fillna(False).astype(bool)
 
     children = spots_df[spots_df["frame_gap"] > 1]
 
@@ -382,6 +406,31 @@ def reassign_skipped_frames(spots_df: pd.DataFrame, skip_frames: list):
     return spots_df
 
 
+def assign_divisions(spots_df: pd.DataFrame, config: PipelineConfig) -> pd.DataFrame:
+    """
+    Link daughters to mothers in each mitosis window. Expects the linear,
+    interpolated tracks produced in run_division_mapping.
+    """
+    params = config.local_post.division_mapping
+    windows = params.windows()
+    print(f"  mitosis windows: {windows}  (method: {params.method})")
+    if params.method == "lap":
+        return map_divisions(spots_df, windows, new_track_cost=params.new_track_cost)
+    if params.method == "hypotheses":
+        spots_df = map_divisions_hypotheses(
+            spots_df,
+            windows,
+            max_cost=params.new_track_cost**0.5,
+            max_mother_gap=params.max_mother_gap,
+            min_daughter_len=params.min_daughter_len,
+            allow_cut=params.allow_cut,
+        )
+        # links across a missed mother detection leave frame gaps
+        return interpolate_spots(spots_df)
+    msg = f"Unknown division_mapping.method: {params.method!r}"
+    raise ValueError(msg)
+
+
 def run_division_mapping(dataset: Path, config: PipelineConfig):
     """
     Pipeline management
@@ -425,13 +474,7 @@ def run_division_mapping(dataset: Path, config: PipelineConfig):
     spots_df = interpolate_spots(spots_df)
     print(spots_df.groupby("track_id")["tracklet_id"].nunique().value_counts())
 
-    """
-    Calculate division costs at each division
-    """
-    final_spots_df = map_divisions(
-        spots_df, config.local_post.division_mapping.interphase_dividers
-    )
-
+    final_spots_df = assign_divisions(spots_df, config)
     final_spots_df = calculate_tracks_and_tracklets(final_spots_df)
 
     print(final_spots_df.groupby("track_id")["tracklet_id"].nunique().value_counts())
@@ -720,13 +763,14 @@ def postprocess_spots_df(df: pd.DataFrame, config: PipelineConfig):
         df.groupby("tracklet_id")["time"].min()
     )
 
-    cycle_starts = np.array(config.local_post.division_mapping.interphase_dividers)
+    cycle_starts = np.array(config.local_post.division_mapping.cycle_boundaries())
     cycle_starts[0] = max(cycle_starts[0], df["frame"].min() + 1)
 
+    # cycle = 10 + number of cycle boundaries at or before the tracklet start
     t_cycle = (
         df.groupby("tracklet_id")["frame"]
         .min()
-        .apply(lambda frame: np.argmax(cycle_starts > frame))
+        .apply(lambda frame: np.searchsorted(cycle_starts, frame, side="right"))
     )
     df["cycle"] = df["tracklet_id"].map(t_cycle) + 10
 

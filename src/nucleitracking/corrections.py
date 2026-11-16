@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 from h5py import File
+from matplotlib.colors import to_rgba
 from napari.utils.notifications import show_info
 from scipy.spatial import KDTree
 from sklearn.decomposition import PCA
@@ -60,6 +61,93 @@ def calculate_tracks(df: pd.DataFrame):
     print(f"took {end - start:0.3f}s to calculate tracks")
 
     return df
+
+
+def lineage_contiguity(
+    df: pd.DataFrame,
+    k: int = 6,
+    max_dist_factor: float = 1.6,
+    min_event_frames: int = 10,
+) -> tuple[pd.Series, pd.DataFrame]:
+    """
+    Find lineages whose nuclei are not spatially contiguous.
+
+    For each frame, every nucleus is joined to up to ``k`` nearest neighbours
+    that lie within ``max_dist_factor`` times the median nearest-neighbour
+    distance of that frame. A lineage (``track_id``) is contiguous if its
+    nuclei form one connected piece of this graph using only edges between
+    members of the lineage. Nuclei outside their lineage's largest piece are
+    *detached*: usually a mistracked link carried them away from their sisters
+    and cousins.
+
+    Returns
+    -------
+    detached : bool Series aligned with df.index
+    events : one row per detachment event -- a detached nucleus whose parent was
+        not detached -- that stays detached along its descendants for at least
+        ``min_event_frames`` frames. Columns: nuc_id, frame, track_id,
+        n_frames, gap_um (distance from the detached nucleus to the nearest
+        nucleus of the lineage's main piece). Sorted by frame.
+    """
+    from scipy.sparse import coo_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    detached = pd.Series(False, index=df.index)
+    gap = pd.Series(np.nan, index=df.index)
+    for _frame, idx in df.groupby("frame").groups.items():
+        sub = df.loc[idx]
+        n = len(sub)
+        lineage = sub["track_id"].to_numpy()
+        if n < 2 or len(np.unique(lineage)) == n:
+            continue  # every nucleus is its own lineage
+        pts = sub[["x", "y", "z"]].to_numpy(float)
+        dist, nb = KDTree(pts).query(pts, k=min(k + 1, n))
+        cap = max_dist_factor * np.median(dist[:, 1])
+        rows = np.repeat(np.arange(n), nb.shape[1] - 1)
+        cols = nb[:, 1:].ravel()
+        keep = (dist[:, 1:].ravel() <= cap) & (lineage[rows] == lineage[cols])
+        pairs = np.column_stack([rows[keep], cols[keep]])
+        graph = coo_matrix(
+            (np.ones(len(pairs)), (pairs[:, 0], pairs[:, 1])), shape=(n, n)
+        )
+        _, comp = connected_components(graph, directed=False)
+        pieces = pd.DataFrame({"lineage": lineage, "comp": comp})
+        sizes = pieces.groupby(["lineage", "comp"]).size()
+        main = sizes.groupby(level="lineage").idxmax().map(lambda t: t[1])
+        is_det = comp != pieces["lineage"].map(main).to_numpy()
+        detached.loc[idx] = is_det
+        for lin in np.unique(lineage[is_det]):
+            in_main = (lineage == lin) & ~is_det
+            away = np.where((lineage == lin) & is_det)[0]
+            d = KDTree(pts[in_main]).query(pts[away])[0]
+            gap.loc[idx[away]] = d
+
+    # detachment events: start of a detached stretch, and how long it lasts
+    parent = df["parent_id"]
+    parent_detached = parent.map(detached).fillna(False).astype(bool)
+    starts = df.index[detached & ~parent_detached]
+    length = pd.Series(0, index=df.index)
+    for _frame, idx in sorted(df.groupby("frame").groups.items(), reverse=True):
+        idx = idx[detached.loc[idx].to_numpy()]
+        if len(idx) == 0:
+            continue
+        length.loc[idx] = 1 + length.loc[idx]
+        par = parent.loc[idx]
+        par = par[par.isin(df.index)]
+        if len(par):
+            best = length.loc[par.index].groupby(par.to_numpy()).max()
+            length.loc[best.index] = np.maximum(length.loc[best.index], best)
+    events = pd.DataFrame(
+        {
+            "nuc_id": starts,
+            "frame": df.loc[starts, "frame"].to_numpy(),
+            "track_id": df.loc[starts, "track_id"].to_numpy(),
+            "n_frames": length.loc[starts].to_numpy(),
+            "gap_um": gap.loc[starts].to_numpy(),
+        }
+    )
+    events = events[events["n_frames"] >= min_event_frames]
+    return detached, events.sort_values("frame").reset_index(drop=True)
 
 
 pal = cc.glasbey
@@ -326,6 +414,9 @@ class Controller:
         self.points_layer = self._add_points_layer()
         self.current_view = "track"
         self.action_history: ActionHistory = ActionHistory()
+        self.contiguity_events = pd.DataFrame()
+        self.contiguity_index = -1
+        self.contiguity_detached = np.zeros(len(self.data.points), bool)
 
     def _add_points_layer(self):
         points = self.data.points
@@ -375,6 +466,7 @@ class Controller:
         viewer.camera.set_view_direction(normal_axis)
 
     def color_by_status(self):
+        self._leave_contiguity()
         status = self.data.status
         colors = np.array([status_colors_rgba[s] for s in status])
         self.points_layer.face_color = colors
@@ -382,6 +474,7 @@ class Controller:
         self.current_view = "status"
 
     def color_by_track(self):
+        self._leave_contiguity()
         df = self.data.df
         df = calculate_tracks(df)
         colors = np.array([pal[tid % 256] for tid in df["track_id"]])
@@ -390,6 +483,7 @@ class Controller:
         self.current_view = "track"
 
     def color_by_count(self):
+        self._leave_contiguity()
         df = self.data.df
         df = calculate_tracks(df)
 
@@ -403,6 +497,69 @@ class Controller:
         self.points_layer.face_color = colors
         self.points_layer.refresh()
         self.current_view = "count"
+
+    def color_by_contiguity(self):
+        """
+        Grey out contiguous lineages; show lineages that split into separate
+        pieces in their lineage colour, with the detached nuclei outlined red.
+        """
+        df = calculate_tracks(self.data.df)
+        detached, events = lineage_contiguity(df)
+        self.contiguity_events = events
+        self.contiguity_index = -1
+
+        split = df["track_id"].isin(events["track_id"]).to_numpy()
+        colors = np.tile(np.array([0.85, 0.85, 0.85, 0.6]), (len(df), 1))
+        lineage_rgb = np.array(
+            [to_rgba(pal[tid % 256]) for tid in df["track_id"][split]]
+        )
+        colors[split] = lineage_rgb
+        self.contiguity_detached = detached.to_numpy() & split
+        self.points_layer.face_color = colors
+        self.current_view = "contiguity"
+        self._apply_contiguity_borders()
+        show_info(
+            f"Contiguity: {len(events)} detachment events in "
+            f"{events['track_id'].nunique()} lineages (n / b to step through)"
+        )
+
+    def _apply_contiguity_borders(self):
+        """Red borders on detached nuclei, black elsewhere."""
+        borders = np.tile(np.array([0.0, 0.0, 0.0, 1.0]), (len(self.data.points), 1))
+        borders[self.contiguity_detached] = [1.0, 0.0, 0.0, 1.0]
+        self.points_layer.border_color = borders
+        self.points_layer.refresh()
+
+    def _leave_contiguity(self):
+        """Drop the red borders when switching to another colour mode."""
+        if self.current_view == "contiguity":
+            self.clear_all_selections()
+
+    def step_contiguity_event(self, delta: int):
+        """Jump to the next / previous detachment event and select its nucleus."""
+        if self.current_view != "contiguity":
+            self.color_by_contiguity()
+        events = self.contiguity_events
+        if events.empty:
+            show_info("No detached lineages.")
+            return None
+        self.contiguity_index = (self.contiguity_index + delta) % len(events)
+        ev = events.iloc[self.contiguity_index]
+        nuc_id = int(ev["nuc_id"])
+        self.clear_all_selections()
+        self._apply_contiguity_borders()
+        self.view_nucleus(nuc_id)
+        nuc_ix = self.data.id_index[nuc_id]
+        self.points_layer.selected_data.add(nuc_ix)
+        self.points_layer.border_color[nuc_ix] = [0.0, 1.0, 0.0, 1.0]
+        self.points_layer.refresh()
+        show_info(
+            f"Detachment {self.contiguity_index + 1}/{len(events)}: nucleus "
+            f"{nuc_id} (frame {int(ev['frame'])}) leaves lineage "
+            f"{int(ev['track_id'])} for {int(ev['n_frames'])} frames, "
+            f"{ev['gap_um']:.1f} um from the rest of it"
+        )
+        return nuc_id
 
     def do_action(self, action: Action):
         msg = action.describe(self.data)
@@ -447,6 +604,8 @@ class Controller:
             self.color_by_status()
         elif self.current_view == "track":
             self.color_by_track()
+        elif self.current_view == "contiguity":
+            self.color_by_contiguity()
         else:
             self.color_by_count()
 
@@ -461,6 +620,12 @@ class Controller:
         if self.current_view == "status":
             self.color_by_status()
             self.points_layer.refresh()
+        elif self.current_view == "contiguity":
+            # edits change lineage membership; recompute (a couple of seconds)
+            index = self.contiguity_index
+            self.color_by_contiguity()
+            # resume at the same position: the next event moved up if this one was fixed
+            self.contiguity_index = max(min(index, len(self.contiguity_events)) - 1, -1)
 
     def clear_all_selections(self):
         self.points_layer.selected_data.clear()
@@ -501,17 +666,7 @@ class Controller:
         )
 
     def export_dataframe(self):
-        self.data.df = calculate_tracks(self.data.df)
-
-        export_df = self.data.df.copy()
-
-        tid_remap = {
-            tid: ix
-            for ix, tid in enumerate(self.data.df["track_id"].value_counts().index)
-        }
-        export_df["track_id"] = export_df["track_id"].map(tid_remap)
-
-        return export_df
+        return export_table(self.data)
 
     def get_nuc_branch(self, nuc_id):
         branch_ids = {nuc_id}
@@ -581,6 +736,67 @@ def prepare_spots(spots_df: pd.DataFrame, first_frame: int) -> pd.DataFrame:
     return spots_df
 
 
+def export_table(data: DataSpace) -> pd.DataFrame:
+    """Corrected spots with lineage ids remapped to contiguous ints by frequency."""
+    data.df = calculate_tracks(data.df)
+    export_df = data.df.copy()
+    tid_remap = {
+        tid: ix for ix, tid in enumerate(data.df["track_id"].value_counts().index)
+    }
+    export_df["track_id"] = export_df["track_id"].map(tid_remap)
+    return export_df
+
+
+def write_corrected_spots(
+    export_df: pd.DataFrame, metadata: dict, export_path: Path, frame_offset: int
+):
+    """Write corrected spots to HDF5, restoring the original frame numbers."""
+    export_df = export_df.copy()
+    export_df["status"] = [s.value for s in export_df["status"]]
+    export_df["frame"] = export_df["frame"] + frame_offset
+    if "source" in export_df.columns:
+        del export_df["source"]
+    export_df.to_hdf(export_path, key="lineages", format="fixed", mode="w")
+
+    with File(export_path, "a") as f:
+        m = f.create_group("metadata")
+        for k, v in metadata.items():
+            m.attrs[k] = v
+
+
+def frame_offset_of(raw_df: pd.DataFrame, first_frame: int) -> int:
+    """The value prepare_spots subtracts from frame numbers."""
+    return int(raw_df.loc[raw_df["frame"] > first_frame, "frame"].min())
+
+
+def export_latest_corrections(
+    spots_path: Path, corrections_dir: Path, export_path: Path, first_frame: int = 0
+) -> pd.DataFrame:
+    """
+    Replay the latest corrections pickle and write the corrected spots, without
+    opening the viewer. Same result as opening correct-embryo and pressing Shift+E.
+    """
+    _stem, metadata, raw_df = load_spots(spots_path)
+    data = DataSpace(prepare_spots(raw_df, first_frame))
+
+    latest = sorted(corrections_dir.glob("corrections_*.pkl"))[-1]
+    history = ActionHistory()
+    history.load(latest)
+    print(f"Replaying {len(history.get_actions())} actions from {latest.name}")
+    for action in history.get_actions():
+        action.execute(data)
+
+    data.df["status"] = assign_status(data.df)
+    for marked, status in data.marked.items():
+        data.df.loc[marked, "status"] = status
+
+    export_df = export_table(data)
+    write_corrected_spots(
+        export_df, metadata, export_path, frame_offset_of(raw_df, first_frame)
+    )
+    return export_df
+
+
 def main(
     spots_path: Path,
     corrections_dir: Path,
@@ -609,6 +825,7 @@ def main(
     _stem, metadata, raw_df = load_spots(spots_path)
     print(raw_df.columns)
 
+    frame_offset = frame_offset_of(raw_df, first_frame)
     spots_df = prepare_spots(raw_df, first_frame)
 
     # ------------------------------------------------------------------ viewer
@@ -686,8 +903,18 @@ def main(
             controller.color_by_track()
         elif controller.current_view == "track":
             controller.color_by_count()
+        elif controller.current_view == "count":
+            controller.color_by_contiguity()
         else:
             controller.color_by_status()
+
+    @points_layer.bind_key("n", overwrite=True)
+    def next_detachment(_layer):
+        controller.step_contiguity_event(1)
+
+    @points_layer.bind_key("b", overwrite=True)
+    def previous_detachment(_layer):
+        controller.step_contiguity_event(-1)
 
     @points_layer.bind_key("shift+s")
     def save_corrections(_layer):
@@ -704,17 +931,9 @@ def main(
 
     @points_layer.bind_key("shift+e")
     def export_dataframe(_layer):
-        export_df = controller.export_dataframe()
-        export_df["status"] = [s.value for s in export_df["status"]]
-        export_df["frame"] = export_df["frame"] + first_frame
-        if "source" in export_df.columns:
-            del export_df["source"]
-        export_df.to_hdf(export_path, key="lineages", format="fixed", mode="w")
-
-        with File(export_path, "a") as f:
-            m = f.create_group("metadata")
-            for k, v in metadata.items():
-                m.attrs[k] = v
+        write_corrected_spots(
+            controller.export_dataframe(), metadata, export_path, frame_offset
+        )
 
         show_info(f"Exported corrected spots → {export_path.name}")
 

@@ -39,15 +39,45 @@ class TrackingParams(BaseModel):
     max_gap_frames: int = 3
     start_frame: int = 0
     skip_frames: list[int] = Field(default_factory=list)
+    # "nearest_neighbor": LAP on raw positions (models/lap_tracking.py)
+    # "velocity": LAP on positions predicted from track velocity and local flow
+    #             (models/motion_tracking.py); better when nuclei move a large
+    #             fraction of their spacing per frame, e.g. after NC13 mitosis
     motion_model: str = "nearest_neighbor"
+    velocity_weight: float = 0.5  # "velocity" only: own velocity vs. local flow
 
 
 class DivisionMappingParams(BaseModel):
     model_config = ConfigDict(extra="allow")
+    # [start, end] frames (inclusive) of each mitotic wave. Daughters may only
+    # start inside a window and mothers must exist before it. If omitted, the
+    # windows are derived from interphase_dividers: (d_k, d_k+1] for each pair.
+    mitosis_windows: list[tuple[int, int]] | None = None
     interphase_dividers: list[int] = Field(
         default_factory=lambda: [45, 80, 130, 195, 267]
     )
+    # "lap": one LAP per window, new tracklet -> full-length tracklet
+    # "hypotheses": per-window integer program over one- and two-new-daughter
+    #               hypotheses (models/division_tracking.py)
+    method: str = "lap"
+    # squared px: the LAP's no-assignment cost / the hypotheses' maximum
+    # midpoint error (36 = 6 px was best on 20250131 and the paper embryos)
     new_track_cost: float = 25.0
+    max_mother_gap: int = 3  # "hypotheses": frames between mother and daughter
+    min_daughter_len: int = 3  # "hypotheses": real spots in a daughter tracklet
+    allow_cut: bool = False  # "hypotheses": may cut a wrong mother continuation
+
+    def windows(self) -> list[tuple[int, int]]:
+        if self.mitosis_windows:
+            return [(int(s), int(e)) for s, e in self.mitosis_windows]
+        d = self.interphase_dividers
+        return [(d[k] + 1, d[k + 1]) for k in range(len(d) - 1)]
+
+    def cycle_boundaries(self) -> list[int]:
+        """First frame of each new cycle (a tracklet starting here is a daughter)."""
+        if self.mitosis_windows:
+            return [int(s) for s, _ in self.mitosis_windows]
+        return list(self.interphase_dividers)
 
 
 class CylidricalCoordsParams(BaseModel):

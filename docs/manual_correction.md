@@ -6,6 +6,87 @@ viewer loaded with the tracked embryo, lets you mark and link nuclei with
 keyboard shortcuts, and saves all edits as a pickle file that is automatically
 replayed the next time you open the same embryo.
 
+## Automatic corrections (run first)
+
+Before manual review, run the automatic corrector on the tracked embryo(s):
+
+```bash
+auto-correct-embryo -c path/to/config.yml [more_configs.yml ...]
+```
+
+It loads the spots exactly as `correct-embryo` does, replays the latest
+corrections pickle if there is one, and repairs the error types that dominated
+the manual corrections of 20250131:
+
+| Error | What it looks like | Fix |
+|-------|--------------------|-----|
+| Missed division | Mother keeps one daughter; the other starts as an orphan track | Orphan linked to the mother sitting at the daughters' midpoint |
+| Stolen daughter | A 1-frame orphan spot beside the mother in anaphase captures a daughter | Daughter re-linked to the mother; spurious spot flagged `ISSUE` |
+| Residual spot | Mother continues onto a spot that dies within a few frames; both daughters orphaned | Stub unlinked, daughters linked |
+| Zipper shift | A row of nuclei each linked to the neighbour's descendant (terminal at one end, orphan at the other) | Region re-linked by constant-velocity assignment, scaled by the true frame interval (handles acquisition pauses) |
+| Short gap | Terminal reappears as an orphan within 3 frames | Linked with flow-compensated distance |
+
+Every link the corrector adds respects the cell cycle: a lineage may divide at
+most once per cycle. Mitosis windows are detected from the division rate per
+frame, and each frame belongs to the cycle span of its nearest window, so a
+division in the tail of a wave still counts. A rescued daughter is rejected if
+the mother's lineage already divided in that span, or if either daughter's chain
+divides again within it; gap closing and zipper re-pairing apply the same rule,
+and links made in the same pass are re-checked against each other before being
+applied. Without this, auto-corrections produced lineages with more than 16
+nuclei.
+
+Remaining short terminal branches are then marked `ISSUE` and posterior-pole
+terminals `POLE_TERMINAL`, using the same rules as **Enter** in the viewer.
+Finally, a cell-cycle check logs (but does not fix) any division outside a
+mitosis window or any lineage dividing twice in one cycle. These come from the
+tracking itself and appear in the CSV as `double_division` /
+`division_outside_mitosis` rows for review.
+
+Output (in the `corrections/` directory):
+
+- `corrections_<timestamp>.pkl` — previous actions + automatic ones. Opened by
+  `correct-embryo` as usual; every automatic action can be undone with
+  **Shift+Z**.
+- `auto_corrections_<timestamp>.csv` — one row per automatic edit (step, kind,
+  parent, child, frame, cost, reason, AP, x/y/z) for auditing.
+
+Use `--replace-auto` to recompute the automatic actions after the corrector
+changes: it keeps your manual actions from the latest pickle and drops the
+earlier automatic ones. Use `--dry-run` to write only the CSV, and `--max-gap N` to allow gap closing
+over longer gaps (off by default: on 20250131, gaps over 3 frames were mostly
+spurious).
+
+### Reviewing what changed
+
+```bash
+review-corrections -c path/to/config.yml               # highlight mode
+review-corrections -c path/to/config.yml --side-by-side
+```
+
+Replays the latest corrections pickle (or `--corrections FILE`) and shows the
+edits. Works for manual corrections too; edits are labelled `manual`.
+
+- **Highlight mode:** the corrected embryo, nuclei coloured by lineage. Edited
+  nuclei are ringed, new links are drawn coloured by type (zipper cyan,
+  division magenta, continuation yellow, stub/head unlink orange, manual
+  white), and removed links are red. `marked: issue` / `marked: pole` and
+  `original tracks` are separate layers you can toggle.
+- **Side-by-side:** original (left) and corrected (right) with a shared camera
+  and time slider. A rescued daughter takes its mother's colour on the right.
+
+Press **n** / **b** to jump to the next / previous edit; the camera centres on
+it, and the type and reason appear in the notification panel. **m** toggles
+whether ISSUE/POLE marks are included. Hover an edited nucleus to see its
+`edit` and `reason` properties. Use `--no-tracks` to skip track tails if
+loading is slow.
+
+On 20250131 (validated against the manual corrections before frame 188 of the
+cropped movie), ~97% of the automatic links agreed with the manual lineage, and
+~80% of the manual link edits were reproduced.
+
+---
+
 ## Launching
 
 Run against a pipeline config (recommended):
@@ -51,13 +132,30 @@ in the same panel.
 ## Understanding the display
 
 Each nucleus is rendered as a sphere at its `(frame, z, y, x)` position. The
-display has three color modes you can cycle through with **Q**:
+display has four color modes you can cycle through with **Q**:
 
 | Mode | What is colored |
 |------|----------------|
 | **Track** (default) | Each lineage a distinct color, maintained through divisions |
 | **Status** | Color by tracking role (see table below) |
 | **Division count** | How many times that lineage has divided (spectral scale) |
+| **Contiguity** | Lineages that have split into separate pieces, in their lineage colour; the detached nuclei outlined in red; everything else light grey |
+
+### Contiguity mode
+
+A lineage's nuclei normally form one patch. In each frame every nucleus is
+joined to up to 6 nearest neighbours within 1.6x the median nearest-neighbour
+distance; a lineage is contiguous if its members form one connected piece of
+that graph, and nuclei outside their lineage's largest piece are *detached*. A detachment event is where a nucleus first becomes detached; only
+events that persist for 10+ frames are listed, since short ones are mostly
+sisters spreading after mitosis. A persistent detachment usually means a
+mistracked link carried a nucleus (and its descendants) into the wrong lineage,
+so look at the links just before the event's frame.
+
+Press **n** / **b** to jump to the next / previous event; the nucleus is
+selected and the notification gives its frame, lineage, duration and distance
+from the rest of the lineage. The mode recomputes after every edit (about 2 s)
+and resumes at the same position in the list.
 
 ### Status colors
 
@@ -80,7 +178,8 @@ display has three color modes you can cycle through with **Q**:
 | Key | Action |
 |-----|--------|
 | **Enter** | Jump to the next unreviewed terminal nucleus. The branch back to the last division point is highlighted in cyan; the terminal itself in green. If the branch is fewer than 4 nuclei long it is auto-marked as `ISSUE`; if it is at the anterior/posterior pole (AP > 0.95) it is auto-marked as `POLE_TERMINAL`. |
-| **Q** | Cycle display mode: Track → Status → Division count |
+| **Q** | Cycle display mode: Track → Division count → Contiguity → Status |
+| **n** / **b** | Next / previous detached-lineage event (switches to Contiguity mode) |
 
 ### Editing
 
@@ -132,4 +231,8 @@ never modified. On the next session the latest pickle is loaded and all actions
 are replayed in order, so the data always reflects the full history of edits.
 
 The exported `_corrected_spots.h5` is the final product intended for downstream
-analysis.
+analysis. To write it without opening the viewer (same output as **Shift+E**):
+
+```bash
+correct-embryo -c config.yml --export-only
+```

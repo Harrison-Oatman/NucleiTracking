@@ -51,6 +51,55 @@ local_post:
     new_track_cost: 25.0
 ```
 
+`tracking.motion_model` selects the frame-to-frame linker:
+
+- `nearest_neighbor` (default): LAP on raw positions (`models/lap_tracking.py`).
+- `velocity`: LAP on predicted positions (`models/motion_tracking.py`). Each
+  nucleus is projected forward by a blend of its own smoothed velocity and the
+  median velocity of its neighbours (`velocity_weight`, default 0.5), scaled by
+  the real frame interval from the `json/` timestamps, and each frame pair is
+  re-solved with the flow measured from the first pass. Use it when nuclei move
+  a large fraction of their spacing per frame (the post-NC13 spreading) or the
+  acquisition has pauses. On 20250625 it cut track breaks in the NC13→14
+  window from 494 to ~200 and links with >6 px acceleration from 3464 to ~390,
+  while matching nearest-neighbour tracking on 20250131.
+
+`division_mapping` links daughters to mothers in each mitotic wave:
+
+```yaml
+  division_mapping:
+    mitosis_windows: [[61, 69], [105, 115], [155, 170], [238, 257]]  # raw frames
+    method: hypotheses
+    new_track_cost: 36.0   # squared px; 6 px max midpoint error
+```
+
+- `mitosis_windows` gives the `[start, end]` frames of each wave (pad the burst
+  of new track starts by ~2 frames). Daughters may only start inside a window
+  and mothers must exist before it, so a track that breaks and restarts in
+  interphase is no longer mapped as a daughter. Cycle numbers in the export are
+  counted from the window starts. Without it, windows are derived from
+  `interphase_dividers` as before.
+- `method: lap` is the original one-LAP-per-window assignment.
+  `method: hypotheses` keeps the backward-interpolated midpoint cost but
+  enumerates explicit hypotheses and picks the best non-conflicting set with an
+  integer program (one division per mother per window):
+  - one new daughter: the mother continues into one daughter, a new track is
+    the other;
+  - two new daughters: the mother's track ends inside the window and two new
+    tracks appear within `max_mother_gap` frames;
+  - mothers are measured at their last *real* detection, up to
+    `max_mother_gap` frames before the daughter, so a nucleus missed in
+    anaphase (bridged by gap closing and interpolation) is not measured at a
+    fake interpolated position;
+  - any track established before the window can be a mother, and any track
+    starting in it with `min_daughter_len` real spots can be a daughter;
+  - `allow_cut: true` also lets a mother drop a wrong continuation in favour
+    of two new daughters (rarely fires; off by default).
+
+To compare tracking variants, give each its own `param_set_name`; outputs go to
+`tracking_<param_set_name>/`. Copying an existing `new_centroids.csv` into the
+new folder skips the (interactive) centroid merge.
+
 ## Running the Pipeline
 
 You will use the `run_pipeline.py` script located in `scripts/`.
