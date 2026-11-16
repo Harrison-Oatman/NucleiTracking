@@ -13,8 +13,6 @@
 
 set -eo pipefail   # stop at the first failing step
 
-module load modules/2.2-20230808
-module load cuda/12.1.1
 source ~/miniforge3/etc/profile.d/conda.sh
 export PATH="$HOME/bin:$PATH"
 # Steps 1 and 3 need pandas + pytables (once: conda activate cellpose_sam; pip install tables).

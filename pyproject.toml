@@ -36,7 +36,8 @@ local = [
     "seaborn>=0.13.2",
 ]
 remote = [
-    "cellpose",
+    "cellpose>=4.2.1.1",
+    "dinov3 @ git+https://github.com/facebookresearch/dinov3",
 ]
 dev = [
     "nucleitracking[remote]",
