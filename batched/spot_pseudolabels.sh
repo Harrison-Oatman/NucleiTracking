@@ -11,8 +11,17 @@
 # Pseudo-masks from spots + pretrained Cellpose-SAM 3D baseline scored against the spots.
 # One embryo, a handful of frames spread over NC10-NC14. Edit the block below.
 
+set -eo pipefail   # stop at the first failing step
+
+module load modules/2.2-20230808
+module load cuda/12.1.1
 source ~/miniforge3/etc/profile.d/conda.sh
-conda activate cellpose
+export PATH="$HOME/bin:$PATH"
+# Steps 1 and 3 need pandas + pytables (once: conda activate cellpose_sam; pip install tables).
+# Step 2 needs cellpose >= 4 (cpsam), as in cellpose_sam_cli.sh.
+PREP_ENV=cellpose_sam
+CPSAM_ENV=cellpose_sam
+conda activate "$PREP_ENV"
 
 EMBRYO=20250131
 BASE_DIR="/mnt/home/hoatman/ceph/lightsheet_${EMBRYO}/raw_image/downscaled"
@@ -31,6 +40,7 @@ python "$SCRIPTS"/spot_pseudolabels.py \
     --frames $FRAMES --slices 6
 
 # 2. pretrained Cellpose-SAM in 3D on the same cropped volumes
+conda activate "$CPSAM_ENV"
 python -m cellpose \
     --dir "${OUT}/volumes" \
     --pretrained_model cpsam \
@@ -38,6 +48,8 @@ python -m cellpose \
     --do_3D --z_axis 0 \
     --savedir "${OUT}/cpsam_3d"
 # nuclei are ~9-14 px across here; if recall is low, try adding --diameter 12
+
+conda activate "$PREP_ENV"
 
 # 3. score both against the spots (pseudo-masks score 1.0 by construction; it is a format check)
 python "$SCRIPTS"/score_masks_vs_spots.py \
