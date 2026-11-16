@@ -19,13 +19,14 @@ BASE_DIR="/mnt/home/hoatman/ceph/lightsheet_${EMBRYO}/raw_image/downscaled"
 RECON="${BASE_DIR}/recon"
 SPOTS="/mnt/home/hoatman/ceph/spots/${EMBRYO}_spots.h5"     # Globus target for data/spots/*.h5
 OUT="${BASE_DIR}/seg3d/pseudolabels"
+SCRIPTS="$HOME/NucleiTracking/batched"   # works from any submit directory
 
 # h5 frames (recon file = frame + 1). 20250131 cycles by frame: NC10 26-43, NC11 44-86,
 # NC12 87-133, NC13 134-204, NC14 205-246. 85 is mid NC11->12 division (mitosis check).
 FRAMES="30 60 85 110 170 225 245"
 
 # 1. pseudo-masks (+ 6 planes per axis per frame for Cellpose training)
-python NucleiTracking/batched/spot_pseudolabels.py \
+python "$SCRIPTS"/spot_pseudolabels.py \
     --recon "$RECON" --spots "$SPOTS" --out "$OUT" \
     --frames $FRAMES --slices 6
 
@@ -34,12 +35,12 @@ python -m cellpose \
     --dir "${OUT}/volumes" \
     --pretrained_model cpsam \
     --use_gpu --save_tif --no_npy --verbose \
-    --do_3d --z_axis 0 \
+    --do_3D --z_axis 0 \
     --savedir "${OUT}/cpsam_3d"
 # nuclei are ~9-14 px across here; if recall is low, try adding --diameter 12
 
 # 3. score both against the spots (pseudo-masks score 1.0 by construction; it is a format check)
-python NucleiTracking/batched/score_masks_vs_spots.py \
+python "$SCRIPTS"/score_masks_vs_spots.py \
     --masks "${OUT}/cpsam_3d" --spots "${OUT}/labels" --out "${OUT}/scores_cpsam_3d.csv"
 
 # 4. (later) fine-tune Cellpose-SAM on the 2D slices; check flags with `python -m cellpose --help`
