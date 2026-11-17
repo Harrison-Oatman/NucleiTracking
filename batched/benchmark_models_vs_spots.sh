@@ -6,11 +6,19 @@
 #SBATCH --mem=48G
 #SBATCH --partition=gpu
 #SBATCH --gpus=1
-#SBATCH --cpus-per-task=2
+#SBATCH --constraint=h100
+#SBATCH --cpus-per-task=4
 #SBATCH --array=0-151%4
 
-# Resource cap: each task = 1 GPU + 2 CPUs (not a whole node: no --exclusive), and %4 lets at
-# most 4 tasks run at once -> at most 4 GPUs and 8 CPUs in use. Keep %4 on any --array override.
+# H100 only: feature `h100` = SXM5 (workergpu201-224) + PCIe (workergpu151-169); --gpus=1 stays
+# untyped (GRES type differs). Add workergpu170: --constraint="h100|sapphirerapids"; SXM only:
+# h100-sxm5. --partition=gpu,gpuxl also uses the gpuxl H100-94GB pool if you have access.
+# Blackwell (-C rtxblackwell) needs a cu128 torch: check torch.cuda.get_arch_list() first.
+
+# Resource cap: each task = 1 GPU + 4 CPUs (not a whole node: no --exclusive), and %4 lets at
+# most 4 tasks run at once -> at most 4 GPUs and 16 CPUs in use. Keep %4 on any --array override.
+# Cellpose's mask post-processing is mostly single-threaded CPU work, so more than ~4 CPUs/task
+# buys little; a faster CPU node matters more.
 # Cellpose model benchmark vs tracked spots, one (model, tp) per array task.
 # Task i -> model = MODELS[i / N_TPS], tp = TPS[i % N_TPS]  (model-major).
 # Finished tasks (tp_XXX_row.csv present) are skipped, so resubmitting is safe.

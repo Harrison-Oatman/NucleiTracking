@@ -320,19 +320,21 @@ def main():
     from cellpose import models as cpm
 
     loaded = None
-    for model_name, tp in tasks:
+    for model_ref, tp in tasks:
+        # built-in name, or path to a trained model file (results labelled by its file name)
+        model_name = Path(model_ref).name if Path(model_ref).is_file() else model_ref
         if (
             not args.overwrite
             and (args.out / model_name / f"tp_{tp:03d}_row.csv").exists()
         ):
             print(f"skip {model_name} tp {tp}: done")
             continue
-        if loaded is None or loaded[0] != model_name:
+        if loaded is None or loaded[0] != model_ref:
             loaded = None
             torch.cuda.empty_cache()
             loaded = (
-                model_name,
-                cpm.CellposeModel(gpu=True, pretrained_model=model_name),
+                model_ref,
+                cpm.CellposeModel(gpu=True, pretrained_model=model_ref),
             )
         run_one(loaded[1], model_name, tp, vols[tp], spots, args)
 
