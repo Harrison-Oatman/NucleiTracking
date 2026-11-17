@@ -36,6 +36,7 @@ export PYTHONUNBUFFERED=1
 EMBRYOS=${EMBRYOS:-"20250131 20250625 20250702 20250704"}
 MODEL=${MODEL:-/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v1}
 NW=${NWORKERS:-4}
+T=$(( ${SLURM_CPUS_PER_TASK:-16} / NW )); (( T < 1 )) && T=1   # CPU threads per worker
 SCRIPTS="$HOME/NucleiTracking/batched"
 recon() { echo "/mnt/home/hoatman/ceph/lightsheet_$1/raw_image/downscaled/recon"; }
 out() { echo "/mnt/home/hoatman/ceph/lightsheet_$1/raw_image/downscaled/seg3d/$(basename "$MODEL")"; }
@@ -51,7 +52,7 @@ done
 worker() {
     local i=$1
     for E in $EMBRYOS; do
-        CUDA_VISIBLE_DEVICES=$i OMP_NUM_THREADS=4 MKL_NUM_THREADS=4 \
+        CUDA_VISIBLE_DEVICES=$i OMP_NUM_THREADS=$T MKL_NUM_THREADS=$T \
             python "$SCRIPTS"/segment_embryo.py --recon "$(recon "$E")" --out "$(out "$E")" \
             --model "$MODEL" --shard "$i" "$NW"
     done
