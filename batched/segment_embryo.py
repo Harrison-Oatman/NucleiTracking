@@ -15,6 +15,8 @@ Settings: Cellpose defaults with do_3D=True, z_axis=0 (the tp 96 sweep found not
 the fine-tuned model), then largest-component + hole filling (3D and per-plane) + min volume.
 
 Usage:
+  python segment_embryo.py --recon R --out O --model M            # all frames, one job
+  python segment_embryo.py --recon R --out O --model M --shard 0 2  # every 2nd frame from 0
   python segment_embryo.py --recon R --out O --model M --index $SLURM_ARRAY_TASK_ID
   python segment_embryo.py --recon R --out O --frames 0 10 20 --model M
   python segment_embryo.py --recon R --out O --merge --embryo 20250131
@@ -80,6 +82,8 @@ def main():
     a.add_argument("--model", default="/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v1")
     a.add_argument("--index", type=int, default=None, help="one frame (array task id)")
     a.add_argument("--frames", nargs="+", type=int, default=None)
+    a.add_argument("--shard", nargs=2, type=int, default=None, metavar=("I", "N"),
+                   help="process every N-th frame starting at I (split one embryo across N jobs)")
     a.add_argument("--min-vol", type=int, default=30)
     a.add_argument("--merge", action="store_true")
     a.add_argument("--embryo", default="embryo")
@@ -98,6 +102,8 @@ def main():
         frames = [args.index]
     else:
         frames = args.frames if args.frames is not None else list(range(len(files)))
+    if args.shard:
+        frames = frames[args.shard[0]::args.shard[1]]
     (args.out / "masks").mkdir(parents=True, exist_ok=True)
     (args.out / "centroids").mkdir(parents=True, exist_ok=True)
     todo = [f for f in frames if args.overwrite or not (args.out / "centroids" / f"frame_{f:04d}.csv").exists()]
