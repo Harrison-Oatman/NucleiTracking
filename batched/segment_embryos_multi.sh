@@ -27,8 +27,9 @@ source ~/miniforge3/etc/profile.d/conda.sh
 conda activate cpbench
 
 export EMBRYOS=${EMBRYOS:-"20250131 20250625 20250702 20250704"}
-export MODEL=${MODEL:-/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v1}
+export MODEL=${MODEL:-/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v3}
 export SCRIPTS="$HOME/NucleiTracking/batched"
+export TILE_NORM=${TILE_NORM:-128}   # local normalization block size (0 = whole volume)
 export NW=${SLURM_NTASKS:-4}
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-4} MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK:-4}
@@ -52,7 +53,7 @@ srun --ntasks="$NW" --gpus-per-task=1 --cpus-per-task="${SLURM_CPUS_PER_TASK:-4}
         python "$SCRIPTS"/segment_embryo.py \
             --recon "/mnt/home/hoatman/ceph/lightsheet_$E/raw_image/downscaled/recon" \
             --out "/mnt/home/hoatman/ceph/lightsheet_$E/raw_image/downscaled/seg3d/$(basename "$MODEL")" \
-            --model "$MODEL" --shard "$i" "$NW"
+            --model "$MODEL" --shard "$i" "$NW" --tile-norm "$TILE_NORM"
     done' || echo "a worker failed; see segmulti_${SLURM_JOB_ID}_w*.log (merging what is done)"
 
 for E in $EMBRYOS; do

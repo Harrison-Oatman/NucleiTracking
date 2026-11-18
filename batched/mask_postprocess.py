@@ -33,6 +33,38 @@ def mask_stats(masks):
     return np.array(rows, dtype=np.int64).reshape(-1, 4)  # label, vol, ncomp, holes
 
 
+def trim_streaks(masks, vol, max_elong=3.0, axis=2, max_angle_deg=30.0, frac=0.5):
+    """Trim masks stretched along the illumination streak axis (default x): for labels whose
+    long/short principal-axis ratio > max_elong and whose long axis is within max_angle_deg of
+    `axis`, keep only voxels above frac x (peak - mask min) + mask min, connected to the peak.
+    Returns (masks, n_trimmed). vol must be the raw volume (not normalized)."""
+    out = masks.copy()
+    n = 0
+    cos_max = np.cos(np.deg2rad(max_angle_deg))
+    for lab, sl in _per_label(masks):
+        m = out[sl] == lab
+        pts = np.argwhere(m)
+        if len(pts) < 30:
+            continue
+        ev, evec = np.linalg.eigh(np.cov(pts.T))
+        if (
+            np.sqrt(ev[2] / max(ev[0], 1e-6)) <= max_elong
+            or abs(evec[axis, 2]) < cos_max
+        ):
+            continue
+        v = ndi.gaussian_filter(vol[sl].astype(np.float32), 1.0)
+        vals = v[m]
+        thr = vals.min() + frac * (vals.max() - vals.min())
+        keep = m & (v >= thr)
+        cc, _ = ndi.label(keep)
+        peak = np.unravel_index(np.argmax(np.where(m, v, -np.inf)), m.shape)
+        keep = cc == cc[peak] if cc[peak] else keep
+        sub = out[sl]
+        sub[m & ~keep] = 0
+        n += 1
+    return out, n
+
+
 def postprocess(masks, min_vol=30):
     out = masks.copy()
     n_frag = n_filled = n_drop = 0
@@ -46,7 +78,9 @@ def postprocess(masks, min_vol=30):
             m = cc == keep
             n_frag += 1
         filled = ndi.binary_fill_holes(m)
-        for ax in range(3):  # also holes that are only closed within a plane (2D rings, cups)
+        for ax in range(
+            3
+        ):  # also holes that are only closed within a plane (2D rings, cups)
             f2 = np.stack([ndi.binary_fill_holes(p) for p in np.moveaxis(m, ax, 0)])
             filled |= np.moveaxis(f2, 0, ax)
         add = filled & ~m & (sub == 0)
@@ -57,4 +91,8 @@ def postprocess(masks, min_vol=30):
         if m.sum() < min_vol:
             sub[m] = 0
             n_drop += 1
-    return out, dict(labels_fragmented=n_frag, labels_filled=n_filled, labels_dropped=n_drop)
+    return out, {
+        "labels_fragmented": n_frag,
+        "labels_filled": n_filled,
+        "labels_dropped": n_drop,
+    }

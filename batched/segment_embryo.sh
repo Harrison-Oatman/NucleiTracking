@@ -35,10 +35,11 @@ conda activate cpbench
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK:-4} MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK:-4}
 
 EMBRYO=${EMBRYO:-20250131}
-MODEL=${MODEL:-/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v1}
+MODEL=${MODEL:-/mnt/home/hoatman/ceph/models/cpsam_v2_spots_v3}
 RECON="/mnt/home/hoatman/ceph/lightsheet_${EMBRYO}/raw_image/downscaled/recon"
 OUT="/mnt/home/hoatman/ceph/lightsheet_${EMBRYO}/raw_image/downscaled/seg3d/$(basename "$MODEL")"
 SCRIPTS="$HOME/NucleiTracking/batched"
+TILE_NORM=${TILE_NORM:-128}   # local normalization block size (0 = whole volume)
 SHARD_ARGS=()
 if [[ -n "$NSHARDS" ]]; then SHARD_ARGS=(--shard "${SHARD:-0}" "$NSHARDS"); fi
 
@@ -46,5 +47,5 @@ N=$(ls "$RECON"/recon_fused_tp_*_ch_0.tif | wc -l)
 echo "embryo $EMBRYO: $N recon frames, model $MODEL, shard ${SHARD:-all}/${NSHARDS:-1} on $(hostname)"
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader || true
 
-python "$SCRIPTS"/segment_embryo.py --recon "$RECON" --out "$OUT" --model "$MODEL" "${SHARD_ARGS[@]}"
+python "$SCRIPTS"/segment_embryo.py --recon "$RECON" --out "$OUT" --model "$MODEL" --tile-norm "$TILE_NORM" "${SHARD_ARGS[@]}"
 python "$SCRIPTS"/segment_embryo.py --recon "$RECON" --out "$OUT" --merge --embryo "$EMBRYO"
